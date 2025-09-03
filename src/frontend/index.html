@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CryHidden - QR Code Reader & Anonymous Messages</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f8f9fa;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .upload-form {
+            border: 2px dashed #ccc;
+            padding: 20px;
+            text-align: center;
+            margin: 20px 0;
+            border-radius: 8px;
+            transition: border-color 0.3s;
+        }
+        .upload-form:hover {
+            border-color: #007bff;
+        }
+        input[type="file"] {
+            margin: 10px;
+        }
+        .btn {
+            background-color: #007bff;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s;
+        }
+        .btn:hover {
+            background-color: #0056b3;
+        }
+        .btn-admin {
+            background-color: #28a745;
+            margin-top: 20px;
+        }
+        .btn-admin:hover {
+            background-color: #218838;
+        }
+        .features {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-top: 30px;
+        }
+        .feature {
+            text-align: center;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+        .feature h3 {
+            color: #007bff;
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔒 CryHidden</h1>
+            <p>QR Code Reader & Anonymous Message System</p>
+        </div>
+        
+        <div class="upload-form">
+            <form action="/upload" method="post" enctype="multipart/form-data">
+                <h3>📷 QR-Code Bild hochladen</h3>
+                <p>Lade ein Bild mit einem QR-Code hoch, um den Inhalt zu dekodieren</p>
+                <input type="file" name="qrcode" accept="image/*" required />
+                <br>
+                <button type="submit" class="btn">Hochladen & Dekodieren</button>
+            </form>
+        </div>
+
+        <div style="text-align: center;">
+            <a href="/admin" class="btn btn-admin">🛠️ Admin-Bereich</a>
+            <p><small>Erstelle QR-Codes für anonyme Nachrichten</small></p>
+        </div>
+
+        <div class="features">
+            <div class="feature">
+                <h3>📱 QR-Code Reader</h3>
+                <p>Dekodiere QR-Codes aus Bildern und zeige deren Inhalt formatiert an</p>
+            </div>
+            <div class="feature">
+                <h3>💬 Anonymous Messages</h3>
+                <p>Erstelle QR-Codes, die zu anonymen Nachrichten-Formularen führen</p>
+            </div>
+            <div class="feature">
+                <h3>🔐 Privacy First</h3>
+                <p>Alle Nachrichten werden anonym gesendet und sicher gespeichert</p>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

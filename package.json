@@ -1,0 +1,17 @@
+{
+  "name": "cryhidden-qrcode-app",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "src/backend/main.js",
+  "scripts": {
+    "start": "node src/backend/main.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "multer": "^1.4.5-lts.1",
+    "qrcode-reader": "^1.0.4",
+    "jimp": "^0.22.10",
+    "uuid": "^10.0.0",
+    "qrcode": "^1.5.3"
+  }
+}
