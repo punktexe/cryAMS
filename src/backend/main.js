@@ -1,14 +1,9 @@
 import express from 'express';
-import multer from 'multer';
-import Jimp from 'jimp';
-import QrCode from 'qrcode-reader';
 import { v4 as uuidv4 } from 'uuid';
 import QRCode from 'qrcode';
-import { formatQRCodeContent } from '../common/qr-utils.js';
 import { DataStore } from '../common/data-store.js';
 
 const app = express();
-const upload = multer({ dest: 'uploads/' });
 
 app.use(express.static('src/frontend'));
 app.use(express.json());
@@ -16,41 +11,6 @@ app.use(express.urlencoded({ extended: true }));
 
 app.get('/', (req, res) => {
   res.sendFile('index.html', { root: 'src/frontend' });
-});app.post('/upload', upload.single('qrcode'), async (req, res) => {
-  if (!req.file) {
-    return res.send('<h2>Fehler:</h2><p>Keine Datei hochgeladen.</p><a href="/">Zurück</a>');
-  }
-  try {
-    const image = await Jimp.read(req.file.path);
-    const qr = new QrCode();
-    qr.callback = (err, value) => {
-      if (err || !value) {
-        return res.send('<h2>Fehler:</h2><p>QR-Code konnte nicht dekodiert werden.</p><a href="/">Zurück</a>');
-      }
-      const formattedContent = formatQRCodeContent(value.result);
-      res.send(`
-        <html>
-        <head>
-          <meta charset="UTF-8">
-          <title>QR-Code Ergebnis</title>
-          <style>
-            body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
-            .result { background: #f5f5f5; padding: 15px; border-radius: 5px; margin: 10px 0; }
-            .back-btn { display: inline-block; margin-top: 20px; padding: 10px 15px; background: #007bff; color: white; text-decoration: none; border-radius: 5px; }
-          </style>
-        </head>
-        <body>
-          <h2>QR-Code Inhalt:</h2>
-          <div class="result">${formattedContent}</div>
-          <a href="/" class="back-btn">Zurück</a>
-        </body>
-        </html>
-      `);
-    };
-    qr.decode(image.bitmap);
-  } catch (e) {
-    res.send('<h2>Fehler:</h2><p>Fehler beim Verarbeiten des Bildes.</p><a href="/">Zurück</a>');
-  }
 });
 
 const PORT = process.env.PORT || 3000;
@@ -62,7 +22,7 @@ app.get('/admin', (req, res) => {
     <html>
     <head>
       <meta charset="UTF-8">
-      <title>Admin - QR Profile Verwaltung</title>
+      <title>Admin - CryAMS Profile Verwaltung</title>
       <style>
         body { font-family: Arial, sans-serif; max-width: 1200px; margin: 0 auto; padding: 20px; }
         .form-group { margin: 15px 0; }
@@ -76,7 +36,7 @@ app.get('/admin', (req, res) => {
       </style>
     </head>
     <body>
-      <h1>QR Profile Verwaltung</h1>
+      <h1>CryAMS - Profile Verwaltung</h1>
       
       <h2>Neues Profil erstellen</h2>
       <form action="/admin/create-profile" method="post">

@@ -1,19 +1,15 @@
-# 🔒 CryHidden - QR Code Reader & Anonymous Message System
+# 🔒 CryAMS - Anonymous Message System
 
-Eine moderne Node.js 24 Anwendung mit ES Modules und Express, die QR-Codes liest und ein anonymes Nachrichtensystem bereitstellt.
+Eine moderne Node.js 24 Anwendung mit ES Modules und Express für ein anonymes Nachrichtensystem mit QR-Code-Integration.
 
 ## ✨ Features
-
-### QR-Code Reader
-- 📷 Upload von QR-Code Bildern
-- 🔍 Automatische Dekodierung und Anzeige der Inhalte
-- 🎯 Intelligente Formatierung für verschiedene QR-Code-Typen (URLs, E-Mails, WIFI, vCards)
 
 ### Anonymous Message System
 - 👤 Profilerstellung mit UUID-basierten URLs
 - 💬 Anonyme Nachrichtenübermittlung
 - 🔗 Automatische QR-Code-Generierung für Profile
 - 📊 Admin-Interface zur Verwaltung von Profilen und Nachrichten
+- 📱 Mobile-optimierte Benutzeroberfläche
 
 ## 🚀 Installation und Start
 
@@ -34,7 +30,7 @@ Eine moderne Node.js 24 Anwendung mit ES Modules und Express, die QR-Codes liest
 ## 📁 Projektstruktur
 
 ```
-cryHidden/
+cryAMS/
 ├── src/
 │   ├── backend/
 │   │   └── main.js              # Express Server
@@ -48,11 +44,6 @@ cryHidden/
 ```
 
 ## 🎯 Verwendung
-
-### QR-Code Reader
-1. Gehe zu `http://localhost:3000`
-2. Lade ein Bild mit einem QR-Code hoch
-3. Das System dekodiert automatisch den Inhalt und zeigt ihn formatiert an
 
 ### Anonymous Message System
 
@@ -81,17 +72,14 @@ cryHidden/
 - **Runtime:** Node.js 24+
 - **Framework:** Express.js
 - **Module System:** ES Modules
-- **QR-Code Processing:** qrcode-reader, jimp
 - **QR-Code Generation:** qrcode
 - **UUID Generation:** uuid v4
-- **File Upload:** multer
 
 ## 📝 API Endpoints
 
 | Endpoint | Methode | Beschreibung |
 |----------|---------|--------------|
-| `/` | GET | Hauptseite mit QR-Code Reader |
-| `/upload` | POST | QR-Code Bild Upload und Dekodierung |
+| `/` | GET | Hauptseite des Anonymous Message Systems |
 | `/admin` | GET | Admin-Interface |
 | `/admin/create-profile` | POST | Neues Profil erstellen |
 | `/:uuid` | GET | Anonyme Nachrichtenseite |

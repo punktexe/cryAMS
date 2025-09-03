@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CryHidden - QR Code Reader & Anonymous Messages</title>
+    <title>CryAMS - Anonymous Message System</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -22,20 +22,6 @@
             text-align: center;
             margin-bottom: 30px;
         }
-        .upload-form {
-            border: 2px dashed #ccc;
-            padding: 20px;
-            text-align: center;
-            margin: 20px 0;
-            border-radius: 8px;
-            transition: border-color 0.3s;
-        }
-        .upload-form:hover {
-            border-color: #007bff;
-        }
-        input[type="file"] {
-            margin: 10px;
-        }
         .btn {
             background-color: #007bff;
             color: white;
@@ -45,6 +31,8 @@
             cursor: pointer;
             font-size: 16px;
             transition: background-color 0.3s;
+            text-decoration: none;
+            display: inline-block;
         }
         .btn:hover {
             background-color: #0056b3;
@@ -72,43 +60,64 @@
             color: #007bff;
             margin-bottom: 10px;
         }
+        .welcome {
+            background: linear-gradient(135deg, #007bff, #0056b3);
+            color: white;
+            padding: 30px;
+            border-radius: 10px;
+            text-align: center;
+            margin-bottom: 30px;
+        }
     </style>
 </head>
 <body>
     <div class="container">
-        <div class="header">
-            <h1>🔒 CryHidden</h1>
-            <p>QR Code Reader & Anonymous Message System</p>
-        </div>
-        
-        <div class="upload-form">
-            <form action="/upload" method="post" enctype="multipart/form-data">
-                <h3>📷 QR-Code Bild hochladen</h3>
-                <p>Lade ein Bild mit einem QR-Code hoch, um den Inhalt zu dekodieren</p>
-                <input type="file" name="qrcode" accept="image/*" required />
-                <br>
-                <button type="submit" class="btn">Hochladen & Dekodieren</button>
-            </form>
+        <div class="welcome">
+            <h1>🔒 CryAMS</h1>
+            <h2>Anonymous Message System</h2>
+            <p>Erstelle QR-Codes für anonyme Nachrichten</p>
         </div>
 
-        <div style="text-align: center;">
-            <a href="/admin" class="btn btn-admin">🛠️ Admin-Bereich</a>
-            <p><small>Erstelle QR-Codes für anonyme Nachrichten</small></p>
+        <div style="text-align: center; margin: 30px 0;">
+            <a href="/admin" class="btn btn-admin">🛠️ Admin-Bereich öffnen</a>
+            <p style="margin-top: 15px;"><small>Erstelle Profile und QR-Codes für anonyme Nachrichten</small></p>
         </div>
 
         <div class="features">
             <div class="feature">
-                <h3>📱 QR-Code Reader</h3>
-                <p>Dekodiere QR-Codes aus Bildern und zeige deren Inhalt formatiert an</p>
+                <h3>� Profile erstellen</h3>
+                <p>Erstelle personalisierte Profile mit Namen, E-Mail und Beschreibung</p>
             </div>
             <div class="feature">
-                <h3>💬 Anonymous Messages</h3>
-                <p>Erstelle QR-Codes, die zu anonymen Nachrichten-Formularen führen</p>
+                <h3>📱 QR-Code generieren</h3>
+                <p>Automatische QR-Code-Generierung für jedes Profil mit eindeutiger URL</p>
+            </div>
+            <div class="feature">
+                <h3>💬 Anonyme Nachrichten</h3>
+                <p>Empfange anonyme Nachrichten über deine personalisierten QR-Codes</p>
+            </div>
+            <div class="feature">
+                <h3>📊 Nachrichtenverwaltung</h3>
+                <p>Verwalte alle empfangenen Nachrichten im übersichtlichen Admin-Bereich</p>
             </div>
             <div class="feature">
                 <h3>🔐 Privacy First</h3>
                 <p>Alle Nachrichten werden anonym gesendet und sicher gespeichert</p>
             </div>
+            <div class="feature">
+                <h3>📲 Mobile optimiert</h3>
+                <p>Responsive Design für optimale Nutzung auf allen Geräten</p>
+            </div>
+        </div>
+
+        <div style="text-align: center; margin-top: 40px; padding: 20px; background: #e9ecef; border-radius: 8px;">
+            <h3>🚀 So funktioniert es:</h3>
+            <ol style="text-align: left; max-width: 400px; margin: 0 auto;">
+                <li>Profil im Admin-Bereich erstellen</li>
+                <li>QR-Code generieren lassen</li>
+                <li>QR-Code teilen oder ausdrucken</li>
+                <li>Anonyme Nachrichten empfangen</li>
+            </ol>
         </div>
     </div>
 </body>
