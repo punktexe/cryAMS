@@ -284,64 +284,42 @@
                 <!-- Aufkleber-Bestellung -->
                 <div class="form-group" style="margin-top: 30px; padding-top: 20px; border-top: 2px solid #dee2e6;">
                     <label style="color: #007bff; font-size: 16px; margin-bottom: 10px;">
-                        🏷️ Physische Aufkleber bestellen (optional)
+                        🏷️ Aufkleber-PDF herunterladen (optional)
                     </label>
                     <div style="margin-bottom: 10px;">
-                        <input type="checkbox" id="orderStickers" name="orderStickers" onchange="toggleStickerFields()">
-                        <label for="orderStickers" style="display: inline; margin-left: 8px; font-weight: normal;">
-                            Ja, ich möchte physische QR-Code-Aufkleber bestellen
+                        <input type="checkbox" id="downloadStickers" name="downloadStickers" onchange="toggleStickerFields()">
+                        <label for="downloadStickers" style="display: inline; margin-left: 8px; font-weight: normal;">
+                            Ja, ich möchte eine PDF-Datei mit Aufklebern zum Selbstdrucken
                         </label>
                     </div>
                 </div>
 
                 <div id="stickerFields" style="display: none;">
                     <div class="form-group">
-                        <label for="stickerQuantity">Anzahl Aufkleber:</label>
-                        <select id="stickerQuantity" name="stickerQuantity">
-                            <option value="5">5 Stück (5€)</option>
-                            <option value="10" selected>10 Stück (8€)</option>
-                            <option value="20">20 Stück (15€)</option>
-                            <option value="50">50 Stück (30€)</option>
+                        <label for="stickerLayout">Aufkleber-Layout:</label>
+                        <select id="stickerLayout" name="stickerLayout">
+                            <option value="4x2">8 Aufkleber (4x2, A4-Seite)</option>
+                            <option value="3x3" selected>9 Aufkleber (3x3, A4-Seite)</option>
+                            <option value="4x3">12 Aufkleber (4x3, A4-Seite)</option>
+                            <option value="5x4">20 Aufkleber (5x4, A4-Seite)</option>
                         </select>
                     </div>
 
-                    <div class="form-group">
-                        <label for="shippingName">Versandname:</label>
-                        <input type="text" id="shippingName" name="shippingName" placeholder="Vor- und Nachname">
+                    <div style="background: #e3f2fd; padding: 15px; border-radius: 5px; margin: 15px 0; font-size: 14px;">
+                        <strong>📄 PDF-Download Informationen:</strong><br>
+                        • Sofort verfügbar nach QR-Code-Genehmigung<br>
+                        • Optimiert für A4-Druck auf Aufkleber-Bögen<br>
+                        • Hochauflösende QR-Codes für beste Lesbarkeit<br>
+                        • Druckempfehlung: 600 DPI, Aufkleber-Papier<br>
+                        • Kostenfrei und umweltfreundlich
                     </div>
 
-                    <div class="form-group">
-                        <label for="shippingAddress">Straße und Hausnummer:</label>
-                        <input type="text" id="shippingAddress" name="shippingAddress" placeholder="Musterstraße 123">
-                    </div>
-
-                    <div style="display: flex; gap: 10px;">
-                        <div class="form-group" style="flex: 1;">
-                            <label for="shippingZip">PLZ:</label>
-                            <input type="text" id="shippingZip" name="shippingZip" placeholder="12345" maxlength="5">
-                        </div>
-                        <div class="form-group" style="flex: 2;">
-                            <label for="shippingCity">Ort:</label>
-                            <input type="text" id="shippingCity" name="shippingCity" placeholder="Musterstadt">
-                        </div>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="shippingCountry">Land:</label>
-                        <select id="shippingCountry" name="shippingCountry">
-                            <option value="DE" selected>Deutschland</option>
-                            <option value="AT">Österreich</option>
-                            <option value="CH">Schweiz</option>
-                            <option value="OTHER">Anderes Land (Preis auf Anfrage)</option>
-                        </select>
-                    </div>
-
-                    <div style="background: #f8f9fa; padding: 15px; border-radius: 5px; margin: 15px 0; font-size: 14px;">
-                        <strong>📦 Versandinformationen:</strong><br>
-                        • Versand per Deutsche Post als Brief<br>
-                        • Lieferzeit: 3-5 Werktage<br>
-                        • Bezahlung per Rechnung oder PayPal<br>
-                        • Aufkleber: 5cm x 8cm, wetterfest, ablösbar
+                    <div style="background: #f8f9fa; padding: 15px; border-radius: 5px; margin: 15px 0; font-size: 13px;">
+                        <strong>� Drucktipps:</strong><br>
+                        • Verwende wasserfeste Aufkleber-Bögen<br>
+                        • Drucke in höchster Qualität (600+ DPI)<br>
+                        • Teste erst mit normalem Papier<br>
+                        • QR-Code-Scanner vor dem Aufkleben testen
                     </div>
                 </div>
                 
@@ -360,37 +338,32 @@
 
     <script>
         function toggleStickerFields() {
-            const checkbox = document.getElementById('orderStickers');
+            const checkbox = document.getElementById('downloadStickers');
             const fields = document.getElementById('stickerFields');
             const submitBtn = document.querySelector('.form-submit');
             
             if (checkbox.checked) {
                 fields.style.display = 'block';
-                submitBtn.innerHTML = '📝 QR-Code + Aufkleber beantragen';
-                
-                // Felder als required setzen
-                ['shippingName', 'shippingAddress', 'shippingZip', 'shippingCity'].forEach(id => {
-                    document.getElementById(id).required = true;
-                });
+                submitBtn.innerHTML = '📝 QR-Code + PDF-Download beantragen';
             } else {
                 fields.style.display = 'none';
                 submitBtn.innerHTML = '📝 QR-Code beantragen';
-                
-                // Required-Attribute entfernen
-                ['shippingName', 'shippingAddress', 'shippingZip', 'shippingCity'].forEach(id => {
-                    document.getElementById(id).required = false;
-                });
             }
         }
 
-        // Preis-Update bei Mengen-Änderung
-        document.getElementById('stickerQuantity').addEventListener('change', function() {
+        // Layout-Update bei Änderung
+        document.getElementById('stickerLayout').addEventListener('change', function() {
             const submitBtn = document.querySelector('.form-submit');
-            const quantity = this.value;
-            const prices = { '5': '5€', '10': '8€', '20': '15€', '50': '30€' };
+            const layout = this.value;
+            const layoutNames = { 
+                '4x2': '8 Aufkleber (4x2)', 
+                '3x3': '9 Aufkleber (3x3)', 
+                '4x3': '12 Aufkleber (4x3)', 
+                '5x4': '20 Aufkleber (5x4)' 
+            };
             
-            if (document.getElementById('orderStickers').checked) {
-                submitBtn.innerHTML = `📝 QR-Code + ${quantity} Aufkleber (${prices[quantity]}) beantragen`;
+            if (document.getElementById('downloadStickers').checked) {
+                submitBtn.innerHTML = `📝 QR-Code + PDF (${layoutNames[layout]}) beantragen`;
             }
         });
     </script>

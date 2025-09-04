@@ -82,13 +82,14 @@ export class DataStore {
   }
 
   static createProfile(profileData) {
-    const { uuid, name, email, description } = profileData;
+    const { uuid, name, email, description, ...additionalData } = profileData;
     const profile = {
       uuid,
       name,
       email,
       description,
-      createdAt: new Date().toISOString()
+      createdAt: new Date().toISOString(),
+      ...additionalData // Füge alle zusätzlichen Daten hinzu (z.B. stickerPDF)
     };
     
     profiles.set(uuid, profile);
@@ -141,16 +142,23 @@ export class DataStore {
     }));
   }
 
-  static approvePendingRequest(uuid) {
+  static getPendingRequest(uuid) {
+    return pendingRequests.get(uuid);
+  }
+
+  static approvePendingRequest(uuid, customProfileData = null) {
     const request = pendingRequests.get(uuid);
     if (request) {
-      // Erstelle genehmigtes Profil
-      const profileUuid = this.createProfile({
+      // Verwende entweder die übergebenen Daten oder die aus der Anfrage
+      const profileData = customProfileData || {
         uuid: request.uuid,
         name: request.name,
         email: request.email,
         description: request.description
-      });
+      };
+      
+      // Erstelle genehmigtes Profil
+      const profileUuid = this.createProfile(profileData);
       
       // Entferne aus pending requests
       pendingRequests.delete(uuid);

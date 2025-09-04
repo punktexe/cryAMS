@@ -3,6 +3,7 @@ import { v4 as uuidv4 } from 'uuid';
 import QRCode from 'qrcode';
 import dotenv from 'dotenv';
 import session from 'express-session';
+import PDFDocument from 'pdfkit';
 import { DataStore } from '../common/data-store.js';
 import EmailService from '../common/email-service.js';
 import AdminAuth from '../common/admin-auth.js';
@@ -19,6 +20,89 @@ function getCountryName(countryCode) {
     'OTHER': 'Anderes Land'
   };
   return countries[countryCode] || countryCode;
+}
+
+// PDF-Generierung für Aufkleber
+async function generateStickerPDF(profile, layout) {
+  return new Promise((resolve, reject) => {
+    try {
+      const doc = new PDFDocument({
+        size: 'A4',
+        margins: { top: 50, bottom: 50, left: 50, right: 50 }
+      });
+      
+      let buffers = [];
+      doc.on('data', buffers.push.bind(buffers));
+      doc.on('end', () => {
+        const pdfData = Buffer.concat(buffers);
+        resolve(pdfData);
+      });
+
+      const pageWidth = 595.28 - 100; // A4 width minus margins
+      const pageHeight = 841.89 - 100; // A4 height minus margins
+      
+      const { rows, cols } = layout;
+      const stickerWidth = pageWidth / cols;
+      const stickerHeight = pageHeight / rows;
+      
+      // QR-Code als SVG erstellen
+      QRCode.toString(profile.url, { type: 'svg', width: 200 }, (err, qrSvg) => {
+        if (err) {
+          reject(err);
+          return;
+        }
+
+        // Header
+        doc.fontSize(20).fillColor('#333').text('cryAMS - QR-Code Aufkleber', 50, 30);
+        doc.fontSize(12).text(`Profil: ${profile.name} | Layout: ${rows}x${cols}`, 50, 55);
+        
+        let stickerCount = 0;
+        const maxStickers = rows * cols;
+        
+        for (let row = 0; row < rows && stickerCount < maxStickers; row++) {
+          for (let col = 0; col < cols && stickerCount < maxStickers; col++) {
+            const x = 50 + col * stickerWidth;
+            const y = 80 + row * stickerHeight;
+            
+            // Aufkleber-Rahmen
+            doc.rect(x + 5, y + 5, stickerWidth - 10, stickerHeight - 10)
+               .stroke('#ddd');
+            
+            // Header des Aufklebers
+            doc.fontSize(12).fillColor('#007bff').text('🔒 cryAMS', x + 15, y + 15);
+            doc.fontSize(8).fillColor('#666').text('Anonymous Message', x + 15, y + 30);
+            
+            // QR-Code Platzhalter (vereinfacht, da SVG-Integration komplex ist)
+            const qrSize = Math.min(stickerWidth - 30, stickerHeight - 80);
+            const qrX = x + (stickerWidth - qrSize) / 2;
+            const qrY = y + 45;
+            
+            doc.rect(qrX, qrY, qrSize, qrSize).stroke('#333');
+            doc.fontSize(8).fillColor('#333').text('QR-Code', qrX + qrSize/2 - 15, qrY + qrSize/2 - 4);
+            
+            // Footer des Aufklebers
+            doc.fontSize(8).fillColor('#333')
+               .text('Scanne für anonyme', x + 15, y + stickerHeight - 35)
+               .text('Nachrichten', x + 15, y + stickerHeight - 25)
+               .fontSize(6).fillColor('#666')
+               .text(profile.url.replace('http://', '').replace('https://', ''), x + 15, y + stickerHeight - 15);
+            
+            stickerCount++;
+          }
+        }
+        
+        // Footer
+        doc.fontSize(8).fillColor('#666')
+           .text(`Generiert am: ${new Date().toLocaleDateString('de-DE')} für ${profile.name}`, 50, pageHeight + 70)
+           .text('Druckempfehlung: 600 DPI auf Aufkleber-Papier', 50, pageHeight + 85);
+        
+        doc.end();
+      });
+      
+    } catch (error) {
+      reject(error);
+    }
+  });
 }
 
 const app = express();
@@ -772,6 +856,11 @@ app.get(ADMIN_PATH, requireAuth, (req, res) => {
               </div>
               
               <div style="margin-top: 20px; text-align: right;">
+                ${profile.stickerPDF ? `
+                  <a href="/pdf/${profile.uuid}" class="btn btn-success" style="margin-right: 10px;" target="_blank">
+                    📄 Aufkleber-PDF herunterladen
+                  </a>
+                ` : ''}
                 <form action="${ADMIN_PATH}/delete-profile/${profile.uuid}" method="post" style="display: inline;" 
                       onsubmit="return confirm('Profil wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.')">
                   <button type="submit" class="btn btn-danger">
@@ -803,18 +892,12 @@ app.get(ADMIN_PATH, requireAuth, (req, res) => {
               <p><strong>📅 Eingereicht am:</strong> ${new Date(request.createdAt).toLocaleDateString('de-DE')} um ${new Date(request.createdAt).toLocaleTimeString('de-DE')}</p>
               <p><strong>🆔 Anfrage-ID:</strong> <code>${request.uuid}</code></p>
               
-              ${request.stickerOrder ? `
-                <div style="background: #fff3cd; padding: 15px; border-radius: 5px; margin: 15px 0; border-left: 4px solid #ffc107;">
-                  <h4 style="margin: 0 0 10px 0; color: #856404;">📦 Aufkleber-Bestellung</h4>
-                  <p style="margin: 5px 0;"><strong>Anzahl:</strong> ${request.stickerOrder.quantity} Stück</p>
-                  <p style="margin: 5px 0;"><strong>Preis:</strong> ${request.stickerOrder.price}€</p>
-                  <p style="margin: 5px 0;"><strong>Versandadresse:</strong></p>
-                  <div style="margin-left: 15px;">
-                    ${request.stickerOrder.shipping.name}<br>
-                    ${request.stickerOrder.shipping.address}<br>
-                    ${request.stickerOrder.shipping.zip} ${request.stickerOrder.shipping.city}<br>
-                    ${getCountryName(request.stickerOrder.shipping.country)}
-                  </div>
+              ${request.stickerPDF ? `
+                <div style="background: #e3f2fd; padding: 15px; border-radius: 5px; margin: 15px 0; border-left: 4px solid #2196f3;">
+                  <h4 style="margin: 0 0 10px 0; color: #0277bd;">� PDF-Download gewünscht</h4>
+                  <p style="margin: 5px 0;"><strong>Layout:</strong> ${request.stickerPDF.count} Aufkleber (${request.stickerPDF.layout})</p>
+                  <p style="margin: 5px 0;"><strong>Anordnung:</strong> ${request.stickerPDF.rows} Zeilen × ${request.stickerPDF.cols} Spalten</p>
+                  <p style="margin: 5px 0; font-size: 12px; color: #666;">PDF wird nach Genehmigung automatisch generiert und per E-Mail versendet.</p>
                 </div>
               ` : ''}
               
@@ -852,13 +935,8 @@ app.post('/request-qr', (req, res) => {
     name, 
     email, 
     description, 
-    orderStickers,
-    stickerQuantity,
-    shippingName,
-    shippingAddress,
-    shippingZip,
-    shippingCity,
-    shippingCountry
+    downloadStickers,
+    stickerLayout
   } = req.body;
   
   const uuid = uuidv4();
@@ -866,37 +944,26 @@ app.post('/request-qr', (req, res) => {
   // Basis-Request-Daten
   const requestData = { uuid, name, email, description };
   
-  // Aufkleber-Bestellung hinzufügen, falls gewünscht
-  if (orderStickers === 'on') {
-    const stickerPrices = { '5': 5, '10': 8, '20': 15, '50': 30 };
-    requestData.stickerOrder = {
-      quantity: parseInt(stickerQuantity) || 10,
-      price: stickerPrices[stickerQuantity] || 8,
-      shipping: {
-        name: shippingName,
-        address: shippingAddress,
-        zip: shippingZip,
-        city: shippingCity,
-        country: shippingCountry
-      }
+  // PDF-Download hinzufügen, falls gewünscht
+  if (downloadStickers === 'on') {
+    const layoutInfo = {
+      '4x2': { rows: 2, cols: 4, count: 8 },
+      '3x3': { rows: 3, cols: 3, count: 9 },
+      '4x3': { rows: 3, cols: 4, count: 12 },
+      '5x4': { rows: 4, cols: 5, count: 20 }
+    };
+    
+    requestData.stickerPDF = {
+      layout: stickerLayout || '3x3',
+      ...layoutInfo[stickerLayout || '3x3']
     };
   }
   
   DataStore.createPendingRequest(requestData);
   
-  const hasStickerOrder = orderStickers === 'on';
-  const stickerText = hasStickerOrder ? 
-    `<p><strong>📦 Aufkleber-Bestellung:</strong> ${requestData.stickerOrder.quantity} Stück (${requestData.stickerOrder.price}€)</p>` : '';
-  
-  const shippingDetails = hasStickerOrder ? 
-    `<div class="order-details"><strong>📦 Versandadresse:</strong><br>` +
-    `${requestData.stickerOrder.shipping.name}<br>` +
-    `${requestData.stickerOrder.shipping.address}<br>` +
-    `${requestData.stickerOrder.shipping.zip} ${requestData.stickerOrder.shipping.city}<br>` +
-    `${getCountryName(requestData.stickerOrder.shipping.country)}</div>` : '';
-  
-  const orderNote = hasStickerOrder ? 
-    '<p><small>Die Aufkleber werden nach Freischaltung des QR-Codes produziert und versendet.</small></p>' : '';
+  const hasPDFDownload = downloadStickers === 'on';
+  const pdfText = hasPDFDownload ? 
+    `<p><strong>� PDF-Download:</strong> ${requestData.stickerPDF.count} Aufkleber (${requestData.stickerPDF.layout})</p>` : '';
   
   res.send(`
     <html>
@@ -907,18 +974,19 @@ app.post('/request-qr', (req, res) => {
         body { font-family: Arial, sans-serif; max-width: 600px; margin: 50px auto; padding: 20px; text-align: center; }
         .success { background: #d4edda; color: #155724; padding: 20px; border-radius: 8px; margin: 20px 0; }
         .btn { background: #007bff; color: white; padding: 10px 20px; border: none; border-radius: 4px; text-decoration: none; display: inline-block; margin-top: 20px; }
-        .order-details { background: #fff3cd; color: #856404; padding: 15px; border-radius: 5px; margin: 10px 0; text-align: left; }
+        .download-info { background: #e3f2fd; color: #0277bd; padding: 15px; border-radius: 5px; margin: 10px 0; text-align: left; }
       </style>
     </head>
     <body>
       <h1>✅ Anfrage gesendet</h1>
       <div class="success">
-        <h3>Deine ${hasStickerOrder ? 'QR-Code-Anfrage mit Aufkleber-Bestellung' : 'QR-Code-Anfrage'} wurde erfolgreich übermittelt!</h3>
+        <h3>Deine ${hasPDFDownload ? 'QR-Code-Anfrage mit PDF-Download' : 'QR-Code-Anfrage'} wurde erfolgreich übermittelt!</h3>
         <p>Ein Administrator wird deine Anfrage prüfen und freischalten.</p>
-        ${stickerText}
-        ${shippingDetails}
+        ${pdfText}
+        ${hasPDFDownload ? '<div class="download-info"><strong>📄 PDF-Download:</strong><br>' +
+          `Nach der Genehmigung erhältst du einen Download-Link für eine druckfertige PDF-Datei mit ${requestData.stickerPDF.count} Aufklebern im ${requestData.stickerPDF.layout}-Layout.</div>` : ''}
         <p>Du erhältst eine Benachrichtigung per E-Mail, sobald dein QR-Code verfügbar ist.</p>
-        ${orderNote}
+        ${hasPDFDownload ? '<p><small>Die PDF-Datei wird sofort nach Freischaltung des QR-Codes verfügbar sein.</small></p>' : ''}
       </div>
       <a href="/" class="btn">Zurück zur Hauptseite</a>
     </body>
@@ -941,10 +1009,30 @@ app.post(`${ADMIN_PATH}/delete-profile/:uuid`, requireAuth, (req, res) => {
 // Approve pending request
 app.post(`${ADMIN_PATH}/approve-request/:uuid`, requireAuth, (req, res) => {
   const { uuid } = req.params;
-  const approved = DataStore.approvePendingRequest(uuid);
+  const request = DataStore.getPendingRequest(uuid);
   
-  if (approved) {
-    console.log(`✅ Anfrage ${uuid} genehmigt und Profil erstellt`);
+  if (request) {
+    // Profil-Daten vorbereiten
+    const profileData = {
+      uuid: request.uuid,
+      name: request.name,
+      email: request.email,
+      description: request.description
+    };
+    
+    // PDF-Layout-Daten hinzufügen, falls vorhanden
+    if (request.stickerPDF) {
+      profileData.stickerPDF = request.stickerPDF;
+    }
+    
+    const approved = DataStore.approvePendingRequest(uuid, profileData);
+    
+    if (approved) {
+      console.log(`✅ Anfrage ${uuid} genehmigt und Profil erstellt`);
+      if (request.stickerPDF) {
+        console.log(`📄 PDF-Download für ${request.name} verfügbar: /pdf/${uuid}`);
+      }
+    }
   }
   
   res.redirect(ADMIN_PATH);
@@ -1003,6 +1091,31 @@ app.get('/qr-demo', async (req, res) => {
     res.send(buffer);
   } catch (error) {
     res.status(500).send('Fehler beim Generieren des Demo QR-Codes');
+  }
+});
+
+// PDF download for stickers
+app.get('/pdf/:uuid', async (req, res) => {
+  try {
+    const { uuid } = req.params;
+    const profile = DataStore.getProfile(uuid);
+    
+    if (!profile) {
+      return res.status(404).send('Profil nicht gefunden');
+    }
+    
+    // Standard-Layout falls nicht spezifiziert
+    const layout = profile.stickerPDF || { rows: 3, cols: 3, count: 9, layout: '3x3' };
+    
+    const pdfBuffer = await generateStickerPDF(profile, layout);
+    
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="cryAMS-Aufkleber-${profile.name.replace(/[^a-zA-Z0-9]/g, '_')}.pdf"`);
+    res.send(pdfBuffer);
+    
+  } catch (error) {
+    console.error('PDF Generation Error:', error);
+    res.status(500).send('Fehler beim Generieren der PDF-Datei');
   }
 });
 
