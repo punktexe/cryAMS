@@ -4,9 +4,14 @@ import QRCode from 'qrcode';
 import dotenv from 'dotenv';
 import session from 'express-session';
 import PDFDocument from 'pdfkit';
+import rateLimit from 'express-rate-limit';
+import helmet from 'helmet';
+import morgan from 'morgan';
+import { body } from 'express-validator';
 import { DataStore } from '../common/data-store.js';
 import EmailService from '../common/email-service.js';
 import AdminAuth from '../common/admin-auth.js';
+import { SecurityUtils } from '../common/security-utils.js';
 
 // Lade .env Datei
 dotenv.config();
@@ -95,6 +100,135 @@ async function generateStickerPDF(profile, layout) {
         doc.fontSize(8).fillColor('#666')
            .text(`Generiert am: ${new Date().toLocaleDateString('de-DE')} für ${profile.name}`, 50, pageHeight + 70)
            .text('Druckempfehlung: 600 DPI auf Aufkleber-Papier', 50, pageHeight + 85);
+        
+        doc.end();
+      });
+      
+    } catch (error) {
+      reject(error);
+    }
+  });
+}
+
+// Spezielle Funktion für Einzelaufkleber mit korrekten 5x8cm Maßen
+async function generateSingleStickerPDF(profile) {
+  return new Promise((resolve, reject) => {
+    try {
+      const doc = new PDFDocument({
+        size: 'A4',
+        margins: { top: 0, bottom: 0, left: 0, right: 0 }
+      });
+      
+      let buffers = [];
+      doc.on('data', buffers.push.bind(buffers));
+      doc.on('end', () => {
+        const pdfData = Buffer.concat(buffers);
+        resolve(pdfData);
+      });
+
+      // A4 Maße in Punkten: 595.28 x 841.89 pt
+      // 5x8cm in Punkten: 141.73 x 226.77 pt (1cm = 28.35pt)
+      const stickerWidthPt = 5 * 28.35; // 5cm in Punkten
+      const stickerHeightPt = 8 * 28.35; // 8cm in Punkten
+      
+      // Zentriert auf der A4-Seite positionieren
+      const pageWidth = 595.28;
+      const pageHeight = 841.89;
+      const xPos = (pageWidth - stickerWidthPt) / 2;
+      const yPos = (pageHeight - stickerHeightPt) / 2;
+      
+      // QR-Code generieren
+      QRCode.toString(profile.url, { 
+        type: 'svg', 
+        width: 120,
+        margin: 0,
+        color: { dark: '#000000', light: '#FFFFFF' }
+      }, (err, qrSvg) => {
+        if (err) {
+          reject(err);
+          return;
+        }
+
+        // Titel oben auf der Seite
+        doc.fontSize(16).fillColor('#333')
+           .text('cryAMS - Einzelaufkleber (5x8cm)', 50, 30);
+        doc.fontSize(10).fillColor('#666')
+           .text(`Profil: ${profile.name} | Zum Ausschneiden und Aufkleben`, 50, 50);
+        
+        // Aufkleber-Außenrahmen (zum Ausschneiden)
+        doc.strokeWidth(1);
+        doc.dash(3, { space: 2 });
+        doc.rect(xPos - 2, yPos - 2, stickerWidthPt + 4, stickerHeightPt + 4).stroke('#999');
+        
+        // Aufkleber-Hauptrahmen
+        doc.strokeWidth(2);
+        doc.undash();
+        doc.rect(xPos, yPos, stickerWidthPt, stickerHeightPt).stroke('#333');
+        
+        // Header des Aufklebers
+        doc.fontSize(14).fillColor('#007bff')
+           .text('🔒 cryAMS', xPos + 10, yPos + 15);
+        doc.fontSize(9).fillColor('#666')
+           .text('Anonymous Message System', xPos + 10, yPos + 32);
+        
+        // QR-Code Bereich (zentriert)
+        const qrSize = 85;
+        const qrX = xPos + (stickerWidthPt - qrSize) / 2;
+        const qrY = yPos + 55;
+        
+        // QR-Code Rahmen
+        doc.strokeWidth(1);
+        doc.rect(qrX - 2, qrY - 2, qrSize + 4, qrSize + 4).stroke('#ddd');
+        
+        // QR-Code Platzhalter (da echte QR-Code-Integration komplex ist)
+        doc.rect(qrX, qrY, qrSize, qrSize).fill('#f8f9fa');
+        doc.strokeWidth(1);
+        doc.rect(qrX, qrY, qrSize, qrSize).stroke('#333');
+        
+        // QR-Code-Muster simulieren
+        const cellSize = qrSize / 21; // 21x21 QR-Code-Raster
+        doc.fillColor('#000');
+        
+        // Vereinfachtes QR-Code-Muster
+        for (let row = 0; row < 21; row++) {
+          for (let col = 0; col < 21; col++) {
+            // Einfaches Schachbrett-Muster für Demo
+            if ((row + col) % 3 === 0 || (row === 0 || row === 20 || col === 0 || col === 20)) {
+              doc.rect(qrX + col * cellSize, qrY + row * cellSize, cellSize, cellSize).fill('#000');
+            }
+          }
+        }
+        
+        // QR-Code Label
+        doc.fontSize(8).fillColor('#666')
+           .text('QR-Code', qrX + qrSize/2 - 15, qrY + qrSize + 8);
+        
+        // Footer des Aufklebers
+        const footerY = yPos + stickerHeightPt - 45;
+        doc.fontSize(9).fillColor('#333')
+           .text('Scanne für anonyme Nachrichten', xPos + 10, footerY);
+        
+        // URL (gekürzt)
+        const shortUrl = profile.url.replace('http://', '').replace('https://', '');
+        doc.fontSize(7).fillColor('#666')
+           .text(shortUrl, xPos + 10, footerY + 15);
+        
+        // Schnittlinien-Hinweis
+        doc.fontSize(8).fillColor('#999')
+           .text('← - - Schnittlinie - - →', xPos - 80, yPos - 15);
+        
+        // Seitliche Schnittlinien-Markierungen
+        doc.moveTo(xPos - 10, yPos).lineTo(xPos - 5, yPos).stroke('#999');
+        doc.moveTo(xPos - 10, yPos + stickerHeightPt).lineTo(xPos - 5, yPos + stickerHeightPt).stroke('#999');
+        doc.moveTo(xPos + stickerWidthPt + 5, yPos).lineTo(xPos + stickerWidthPt + 10, yPos).stroke('#999');
+        doc.moveTo(xPos + stickerWidthPt + 5, yPos + stickerHeightPt).lineTo(xPos + stickerWidthPt + 10, yPos + stickerHeightPt).stroke('#999');
+        
+        // Druckhinweise unten auf der Seite
+        doc.fontSize(9).fillColor('#666')
+           .text('📏 Aufkleber-Maße: 5cm x 8cm', 50, pageHeight - 80)
+           .text('✂️  Entlang der gestrichelten Linie ausschneiden', 50, pageHeight - 65)
+           .text('🖨️ Druckempfehlung: 600 DPI, Aufkleber-Papier, 100% Größe', 50, pageHeight - 50)
+           .text(`📅 Generiert am: ${new Date().toLocaleDateString('de-DE')} für ${profile.name}`, 50, pageHeight - 35);
         
         doc.end();
       });
@@ -200,23 +334,132 @@ const adminAuth = new AdminAuth();
 DataStore.initialize();
 adminAuth.initialize();
 
-// Session-Middleware
+// SICHERHEITS-MIDDLEWARE
+
+// 1. Security Headers
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      scriptSrc: ["'self'", "'unsafe-inline'"],
+      imgSrc: ["'self'", "data:", "blob:"],
+      connectSrc: ["'self'"],
+      fontSrc: ["'self'"],
+      objectSrc: ["'none'"],
+      mediaSrc: ["'self'"],
+      frameSrc: ["'none'"],
+    },
+  },
+  crossOriginEmbedderPolicy: false
+}));
+
+// 2. Trust Proxy für Rate Limiting
+app.set('trust proxy', 1);
+
+// 3. Request Logging
+app.use(morgan('combined', {
+  skip: function (req, res) { 
+    return res.statusCode < 400; // Nur Errors loggen
+  }
+}));
+
+// 4. Rate Limiting Konfiguration
+const createRateLimit = (windowMs, max, message) => rateLimit({
+  windowMs: windowMs,
+  max: max,
+  message: {
+    error: message,
+    retryAfter: Math.ceil(windowMs / 60000) + ' Minuten'
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: (req, res) => {
+    SecurityUtils.logSuspiciousActivity(req, `Rate limit exceeded: ${message}`);
+    res.status(429).send(`
+      <html>
+      <head>
+        <meta charset="UTF-8">
+        <title>Zu viele Anfragen - cryAMS</title>
+        <style>
+          body { font-family: Arial, sans-serif; max-width: 600px; margin: 50px auto; padding: 20px; text-align: center; }
+          .error { background: #fff3cd; color: #856404; padding: 20px; border-radius: 8px; margin: 20px 0; }
+        </style>
+      </head>
+      <body>
+        <div class="error">
+          <h1>⏰ Zu viele Anfragen</h1>
+          <p>${message}</p>
+          <p>Bitte warten Sie ${Math.ceil(windowMs / 60000)} Minuten bevor Sie es erneut versuchen.</p>
+        </div>
+      </body>
+      </html>
+    `);
+  }
+});
+
+// Rate Limits definieren
+const generalLimit = createRateLimit(
+  parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 900000, // 15 min
+  parseInt(process.env.RATE_LIMIT_MAX) || 100,
+  'Zu viele Anfragen von dieser IP-Adresse'
+);
+
+const messageLimit = createRateLimit(
+  900000, // 15 min
+  parseInt(process.env.RATE_LIMIT_MESSAGE_MAX) || 5,
+  'Zu viele Nachrichten gesendet. Bitte warten Sie bevor Sie weitere Nachrichten senden.'
+);
+
+const loginLimit = createRateLimit(
+  900000, // 15 min
+  parseInt(process.env.RATE_LIMIT_LOGIN_MAX) || 5,
+  'Zu viele Login-Versuche. Bitte warten Sie bevor Sie es erneut versuchen.'
+);
+
+// Anwenden der Rate Limits
+app.use(generalLimit);
+
+// 5. Session-Middleware mit Sicherheitshärtung
+if (!process.env.SESSION_SECRET) {
+  console.error('🚨 KRITISCHER FEHLER: SESSION_SECRET nicht gesetzt!');
+  console.error('📝 Bitte setzen Sie SESSION_SECRET in der .env Datei');
+  process.exit(1);
+}
+
 app.use(session({
-  secret: process.env.SESSION_SECRET || 'cryAMS-session-secret-' + Math.random(),
+  secret: process.env.SESSION_SECRET,
   resave: false,
   saveUninitialized: false,
+  name: 'cryAMS_session',
   cookie: { 
-    secure: false, // Für HTTPS auf true setzen
-    maxAge: 24 * 60 * 60 * 1000 // 24 Stunden
+    secure: process.env.NODE_ENV === 'production',
+    httpOnly: true,
+    maxAge: 2 * 60 * 60 * 1000, // 2 Stunden statt 24
+    sameSite: 'strict'
   }
 }));
 
 app.use(express.static('src/frontend'));
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// CSRF Token Middleware
+app.use((req, res, next) => {
+  if (!req.session.csrfToken) {
+    req.session.csrfToken = SecurityUtils.generateCSRFToken();
+  }
+  res.locals.csrfToken = req.session.csrfToken;
+  next();
+});
 
 app.get('/', (req, res) => {
   res.sendFile('index.html', { root: 'src/frontend' });
+});
+
+// CSRF Token Endpoint
+app.get('/api/csrf-token', (req, res) => {
+  res.json({ token: req.session.csrfToken });
 });
 
 const PORT = process.env.PORT || 3000;
@@ -231,6 +474,7 @@ function requireAuth(req, res, next) {
   if (req.session.adminLoggedIn) {
     return next();
   }
+  SecurityUtils.logSuspiciousActivity(req, 'Unauthorized admin access attempt');
   res.redirect(`${ADMIN_PATH}/login`);
 }
 
@@ -385,7 +629,17 @@ app.get(`${ADMIN_PATH}/setup`, (req, res) => {
 });
 
 // Admin Setup POST Route
-app.post(`${ADMIN_PATH}/setup`, async (req, res) => {
+app.post(`${ADMIN_PATH}/setup`, 
+  SecurityUtils.validateProfileName(),
+  SecurityUtils.validatePassword(),
+  body('confirmPassword').custom((value, { req }) => {
+    if (value !== req.body.password) {
+      throw new Error('Passwörter stimmen nicht überein');
+    }
+    return true;
+  }),
+  SecurityUtils.checkValidationErrors,
+  async (req, res) => {
   if (!adminAuth.needsSetup()) {
     return res.redirect(`${ADMIN_PATH}/login`);
   }
@@ -393,26 +647,10 @@ app.post(`${ADMIN_PATH}/setup`, async (req, res) => {
   const { username, password, confirmPassword } = req.body;
   
   try {
-    // Validierung
-    if (!username || username.trim().length < 3) {
-      req.session.setupError = 'Benutzername muss mindestens 3 Zeichen haben';
-      return res.redirect(`${ADMIN_PATH}/setup`);
-    }
-    
-    if (!password || password.length < 6) {
-      req.session.setupError = 'Passwort muss mindestens 6 Zeichen haben';
-      return res.redirect(`${ADMIN_PATH}/setup`);
-    }
-    
-    if (password !== confirmPassword) {
-      req.session.setupError = 'Passwörter stimmen nicht überein';
-      return res.redirect(`${ADMIN_PATH}/setup`);
-    }
-    
     // Admin-Konfiguration erstellen
     await adminAuth.createAdminConfig(username.trim(), password);
     
-    console.log(`🔐 Admin-Setup abgeschlossen für: ${username.trim()}`);
+    console.log(`🔐 Admin-Setup abgeschlossen für: ${SecurityUtils.escapeHtml(username.trim())}`);
     
     // Automatisch einloggen
     req.session.adminLoggedIn = true;
@@ -422,7 +660,7 @@ app.post(`${ADMIN_PATH}/setup`, async (req, res) => {
     
   } catch (error) {
     console.error('Setup-Fehler:', error);
-    req.session.setupError = 'Ein Fehler ist aufgetreten: ' + error.message;
+    req.session.setupError = 'Ein Fehler ist aufgetreten: ' + SecurityUtils.escapeHtml(error.message);
     res.redirect(`${ADMIN_PATH}/setup`);
   }
 });
@@ -555,7 +793,11 @@ app.get(`${ADMIN_PATH}/login`, (req, res) => {
 });
 
 // Admin Login POST Route
-app.post(`${ADMIN_PATH}/login`, async (req, res) => {
+app.post(`${ADMIN_PATH}/login`, 
+  loginLimit,
+  SecurityUtils.validateAdminLogin(),
+  SecurityUtils.checkValidationErrors,
+  async (req, res) => {
   const { username, password } = req.body;
   
   try {
@@ -564,14 +806,16 @@ app.post(`${ADMIN_PATH}/login`, async (req, res) => {
     if (isValid) {
       req.session.adminLoggedIn = true;
       req.session.adminUsername = username;
-      console.log(`🔐 Admin-Login erfolgreich: ${username}`);
+      console.log(`🔐 Admin-Login erfolgreich: ${SecurityUtils.escapeHtml(username)}`);
       res.redirect(ADMIN_PATH);
     } else {
+      SecurityUtils.logSuspiciousActivity(req, `Failed admin login attempt for username: ${username}`);
       req.session.loginError = 'Ungültiger Benutzername oder Passwort';
       res.redirect(`${ADMIN_PATH}/login`);
     }
   } catch (error) {
     console.error('Login-Fehler:', error);
+    SecurityUtils.logSuspiciousActivity(req, `Admin login error: ${error.message}`);
     req.session.loginError = 'Ein Fehler ist aufgetreten';
     res.redirect(`${ADMIN_PATH}/login`);
   }
@@ -789,7 +1033,7 @@ app.get(ADMIN_PATH, requireAuth, (req, res) => {
         }
       </style>
       <script>
-        function showTab(tabId) {
+        function showTab(tabId, clickedElement) {
           // Hide all tab panels
           document.querySelectorAll('.tab-panel').forEach(panel => {
             panel.classList.remove('active');
@@ -801,15 +1045,42 @@ app.get(ADMIN_PATH, requireAuth, (req, res) => {
           });
           
           // Show selected tab panel
-          document.getElementById(tabId).classList.add('active');
+          const targetPanel = document.getElementById(tabId);
+          if (targetPanel) {
+            targetPanel.classList.add('active');
+          }
           
           // Add active class to clicked tab
-          event.target.classList.add('active');
+          if (clickedElement) {
+            clickedElement.classList.add('active');
+          }
         }
         
-        // Show first tab by default
+        // Initialize tab functionality
         window.onload = function() {
-          document.querySelector('.tab').click();
+          // Add event listeners to all tab buttons
+          document.querySelectorAll('.tab, .tab-nav-btn').forEach((tabButton) => {
+            tabButton.addEventListener('click', function() {
+              const tabId = this.getAttribute('data-tab');
+              showTab(tabId, this);
+            });
+          });
+          
+          // Add confirmation for delete forms
+          document.querySelectorAll('.delete-form').forEach((form) => {
+            form.addEventListener('submit', function(e) {
+              if (!confirm('Profil wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.')) {
+                e.preventDefault();
+              }
+            });
+          });
+          
+          // Show first tab by default
+          const firstTab = document.querySelector('.tab');
+          if (firstTab) {
+            const firstTabId = firstTab.getAttribute('data-tab');
+            showTab(firstTabId, firstTab);
+          }
         }
       </script>
     </head>
@@ -851,21 +1122,25 @@ app.get(ADMIN_PATH, requireAuth, (req, res) => {
           return `<div style="background: #f8d7da; color: #721c24; padding: 15px; margin: 20px 0; border-radius: 5px; border-left: 4px solid #dc3545;">
             ❌ <strong>Fehler:</strong> PDF konnte nicht per E-Mail versendet werden.
           </div>`;
+        } else if (error === 'single-pdf-failed') {
+          return `<div style="background: #f8d7da; color: #721c24; padding: 15px; margin: 20px 0; border-radius: 5px; border-left: 4px solid #dc3545;">
+            ❌ <strong>Fehler:</strong> Einzelaufkleber-PDF konnte nicht generiert werden.
+          </div>`;
         }
         return '';
       })()}
       
       <div class="tabs">
-        <button class="tab" onclick="showTab('tab-create')">
+        <button class="tab" data-tab="tab-create">
           ➕ Neues Profil erstellen
         </button>
-        <button class="tab" onclick="showTab('tab-overview')">
+        <button class="tab" data-tab="tab-overview">
           📊 Aktive Profile (${profiles.length})
         </button>
-        <button class="tab" onclick="showTab('tab-profiles')">
+        <button class="tab" data-tab="tab-profiles">
           👥 Bestehende Profile
         </button>
-        <button class="tab" onclick="showTab('tab-pending')">
+        <button class="tab" data-tab="tab-pending">
           ⏳ Zu prüfende Profile
           ${pendingRequests.length > 0 ? `<span class="tab-badge">${pendingRequests.length}</span>` : ''}
         </button>
@@ -915,9 +1190,9 @@ app.get(ADMIN_PATH, requireAuth, (req, res) => {
           
           <h3>🎯 Schnellaktionen</h3>
           <div style="display: flex; gap: 15px; flex-wrap: wrap;">
-            <button class="btn" onclick="showTab('tab-create')">➕ Neues Profil erstellen</button>
-            <button class="btn btn-success" onclick="showTab('tab-profiles')">👥 Profile verwalten</button>
-            ${pendingRequests.length > 0 ? `<button class="btn btn-danger" onclick="showTab('tab-pending')">⏳ Anfragen bearbeiten (${pendingRequests.length})</button>` : ''}
+            <button class="btn tab-nav-btn" data-tab="tab-create">➕ Neues Profil erstellen</button>
+            <button class="btn btn-success tab-nav-btn" data-tab="tab-profiles">👥 Profile verwalten</button>
+            ${pendingRequests.length > 0 ? `<button class="btn btn-danger tab-nav-btn" data-tab="tab-pending">⏳ Anfragen bearbeiten (${pendingRequests.length})</button>` : ''}
           </div>
           
           ${profiles.length > 0 ? `
@@ -942,7 +1217,7 @@ app.get(ADMIN_PATH, requireAuth, (req, res) => {
             <div class="empty-state-icon">📭</div>
             <h3>Noch keine Profile vorhanden</h3>
             <p>Erstelle dein erstes Profil über den Tab "Neues Profil erstellen"</p>
-            <button class="btn" onclick="showTab('tab-create')">➕ Jetzt Profil erstellen</button>
+            <button class="btn tab-nav-btn" data-tab="tab-create">➕ Jetzt Profil erstellen</button>
           </div>
           ` : profiles.map(profile => `
             <div class="profile-card">
@@ -970,6 +1245,11 @@ app.get(ADMIN_PATH, requireAuth, (req, res) => {
               </div>
               
               <div style="margin-top: 20px; text-align: right;">
+                <form action="${ADMIN_PATH}/generate-single-sticker/${profile.uuid}" method="post" style="display: inline; margin-right: 10px;">
+                  <button type="submit" class="btn btn-info">
+                    🏷️ Einzelaufkleber (5x8cm)
+                  </button>
+                </form>
                 ${profile.stickerPDF ? `
                   <a href="/pdf/${profile.uuid}" class="btn btn-success" style="margin-right: 10px;" target="_blank">
                     📄 PDF herunterladen
@@ -979,7 +1259,7 @@ app.get(ADMIN_PATH, requireAuth, (req, res) => {
                   </form>
                 ` : ''}
                 <form action="${ADMIN_PATH}/delete-profile/${profile.uuid}" method="post" style="display: inline;" 
-                      onsubmit="return confirm('Profil wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.')">
+                      class="delete-form">
                   <button type="submit" class="btn btn-danger">
                     🗑️ Profil löschen
                   </button>
@@ -1037,17 +1317,37 @@ app.get(ADMIN_PATH, requireAuth, (req, res) => {
 });
 
 // Create new profile
-app.post(`${ADMIN_PATH}/create-profile`, requireAuth, (req, res) => {
+app.post(`${ADMIN_PATH}/create-profile`, 
+  requireAuth,
+  SecurityUtils.validateCSRFToken,
+  SecurityUtils.validateProfileName(),
+  SecurityUtils.validateEmail(),
+  SecurityUtils.validateDescription(),
+  SecurityUtils.checkValidationErrors,
+  (req, res) => {
   const { name, email, description } = req.body;
   const uuid = uuidv4();
   
-  DataStore.createProfile({ uuid, name, email, description });
+  const sanitizedData = {
+    uuid,
+    name: SecurityUtils.sanitizeHtml(name),
+    email: email.toLowerCase(),
+    description: SecurityUtils.sanitizeHtml(description)
+  };
+  
+  DataStore.createProfile(sanitizedData);
+  console.log(`✅ Neues Profil erstellt: ${SecurityUtils.escapeHtml(name)} (${email})`);
   
   res.redirect(ADMIN_PATH);
 });
 
 // Request QR code from main page (creates pending request)
-app.post('/request-qr', (req, res) => {
+app.post('/request-qr',
+  SecurityUtils.validateProfileName(),
+  SecurityUtils.validateEmail(),
+  SecurityUtils.validateDescription(),
+  SecurityUtils.checkValidationErrors,
+  (req, res) => {
   const { 
     name, 
     email, 
@@ -1058,8 +1358,13 @@ app.post('/request-qr', (req, res) => {
   
   const uuid = uuidv4();
   
-  // Basis-Request-Daten
-  const requestData = { uuid, name, email, description };
+  // Basis-Request-Daten mit Sanitization
+  const requestData = { 
+    uuid, 
+    name: SecurityUtils.sanitizeHtml(name), 
+    email: email.toLowerCase(), 
+    description: SecurityUtils.sanitizeHtml(description)
+  };
   
   // PDF-Download hinzufügen, falls gewünscht
   if (downloadStickers === 'on') {
@@ -1070,9 +1375,11 @@ app.post('/request-qr', (req, res) => {
       '5x4': { rows: 4, cols: 5, count: 20 }
     };
     
+    const safeLayout = ['4x2', '3x3', '4x3', '5x4'].includes(stickerLayout) ? stickerLayout : '3x3';
+    
     requestData.stickerPDF = {
-      layout: stickerLayout || '3x3',
-      ...layoutInfo[stickerLayout || '3x3']
+      layout: safeLayout,
+      ...layoutInfo[safeLayout]
     };
   }
   
@@ -1199,6 +1506,33 @@ app.post(`${ADMIN_PATH}/send-pdf/:uuid`, requireAuth, async (req, res) => {
   } catch (error) {
     console.error(`❌ Fehler beim manuellen PDF-Versand für ${profile.email}:`, error);
     res.redirect(ADMIN_PATH + '?error=pdf-send-failed');
+  }
+});
+
+// Generate single sticker PDF
+app.post(`${ADMIN_PATH}/generate-single-sticker/:uuid`, requireAuth, async (req, res) => {
+  try {
+    const { uuid } = req.params;
+    const profile = DataStore.getProfile(uuid);
+    
+    if (!profile) {
+      return res.redirect(ADMIN_PATH + '?error=profile-not-found');
+    }
+    
+    // Set URL for QR code
+    profile.url = `${DOMAIN}/${profile.uuid}`;
+    
+    console.log(`🏷️ Generiere Einzelaufkleber-PDF (5x8cm) für ${profile.name}...`);
+    const pdfBuffer = await generateSingleStickerPDF(profile);
+    
+    // Send PDF directly as download
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="cryAMS-Einzelaufkleber-5x8cm-${profile.name.replace(/[^a-zA-Z0-9]/g, '_')}.pdf"`);
+    res.send(pdfBuffer);
+    
+  } catch (error) {
+    console.error('❌ Fehler beim Generieren des Einzelaufkleber-PDF:', error);
+    res.redirect(ADMIN_PATH + '?error=single-pdf-failed');
   }
 });
 
@@ -1344,13 +1678,41 @@ app.get('/:uuid', (req, res) => {
 });
 
 // Handle message submission
-app.post('/:uuid/message', async (req, res) => {
+app.post('/:uuid/message', 
+  messageLimit,
+  SecurityUtils.validateMessageContent(),
+  SecurityUtils.checkValidationErrors,
+  async (req, res) => {
   const { uuid } = req.params;
   const { content, senderName } = req.body;
+  
+  // UUID validieren
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(uuid)) {
+    SecurityUtils.logSuspiciousActivity(req, `Invalid UUID format: ${uuid}`);
+    return res.status(400).send(`
+      <html>
+      <head>
+        <meta charset="UTF-8">
+        <title>Ungültige Anfrage - cryAMS</title>
+        <style>
+          body { font-family: Arial, sans-serif; max-width: 600px; margin: 50px auto; padding: 20px; text-align: center; }
+          .error { background: #f8d7da; color: #721c24; padding: 20px; border-radius: 8px; margin: 20px 0; }
+        </style>
+      </head>
+      <body>
+        <div class="error">
+          <h2>❌ Ungültige Anfrage</h2>
+          <p>Die Profil-ID ist nicht gültig.</p>
+        </div>
+      </body>
+      </html>
+    `);
+  }
   
   const profile = DataStore.getProfile(uuid);
   
   if (!profile) {
+    SecurityUtils.logSuspiciousActivity(req, `Access attempt to non-existent profile: ${uuid}`);
     return res.status(404).send(`
       <html>
       <head>
@@ -1371,10 +1733,10 @@ app.post('/:uuid/message', async (req, res) => {
     `);
   }
 
-  // Nachricht per E-Mail weiterleiten
+  // Nachricht per E-Mail weiterleiten mit sanitisierten Daten
   const messageData = {
-    content,
-    senderName: senderName || 'Anonym',
+    content: SecurityUtils.sanitizeHtml(content),
+    senderName: SecurityUtils.sanitizeHtml(senderName) || 'Anonym',
     timestamp: new Date().toISOString()
   };
 

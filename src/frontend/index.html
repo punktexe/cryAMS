@@ -298,22 +298,35 @@
             <h3>📝 QR-Code beantragen</h3>
             <p style="margin-bottom: 20px;">Fülle das Formular aus, um deinen persönlichen QR-Code zu beantragen:</p>
 
-            <form action="/request-qr" method="post" style="max-width: 400px; margin: 0 auto; text-align: left;">
-                <div class="form-group">
-                    <label for="name">Name:</label>
-                    <input type="text" id="name" name="name" required>
-                </div>
-
-                <div class="form-group">
-                    <label for="email">E-Mail-Adresse:</label>
-                    <input type="email" id="email" name="email" required>
-                </div>
-
-                <div class="form-group">
-                    <label for="description">Beschreibung (optional):</label>
-                    <textarea id="description" name="description" rows="3"
-                        placeholder="Z.B. für welchen Zweck soll der QR-Code verwendet werden?"></textarea>
-                </div>
+            <form action="/request-qr" method="post" id="qrRequestForm">
+                    <!-- CSRF Protection -->
+                    <input type="hidden" name="_csrf" id="csrfToken">
+                    
+                    <div class="form-group">
+                        <label for="name">👤 Ihr Name:</label>
+                        <input type="text" id="name" name="name" required maxlength="50" 
+                               pattern="^[a-zA-ZäöüÄÖÜß\s\-\.]+$"
+                               title="Nur Buchstaben, Leerzeichen, Bindestriche und Punkte erlaubt"
+                               placeholder="z.B. Max Mustermann">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="email">📧 Ihre E-Mail-Adresse:</label>
+                        <input type="email" id="email" name="email" required maxlength="100"
+                               placeholder="max@example.com">
+                        <small style="color: #666; font-size: 12px;">
+                            📨 Hierhin werden die anonymen Nachrichten weitergeleitet
+                        </small>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="description">📝 Beschreibung (optional):</label>
+                        <textarea id="description" name="description" rows="3" maxlength="500"
+                                  placeholder="Beschreiben Sie den Zweck des QR-Codes..."></textarea>
+                        <small style="color: #666; font-size: 12px;">
+                            💡 Diese Beschreibung wird Personen angezeigt, die Ihren QR-Code scannen
+                        </small>
+                    </div>
 
                 <!-- Aufkleber-Bestellung -->
                 <div class="form-group" style="margin-top: 30px; padding-top: 20px; border-top: 2px solid #dee2e6;">
