@@ -1,19 +1,20 @@
 - [x] Clarify Project Requirements
-  - Node.js 24 app using ES modules and Express. App reads QR codes and displays their contents.
+  - Node.js 24 app using ES modules and Express for anonymous messaging system
 - [x] Scaffold the Project
   - Created package.json with ES modules and dependencies
   - Set up folder structure with src/backend, src/frontend, src/common
 - [x] Customize the Project
   - Moved server logic to src/backend/main.js
-  - Created HTML frontend in src/frontend/index.html
-  - Added common utilities in src/common/qr-utils.js
+  - Created HTML frontend with QR code sticker preview
   - Extended with anonymous message system using UUID-based URLs
-  - Added QR code generation and admin interface
+  - Added QR code generation and tab-based admin interface
+  - Implemented admin authentication with bcrypt and sessions
+  - Added custom SMTP support for email forwarding
 - [x] Compile the Project
   - Installed all dependencies successfully
 - [x] Create and Run Task
-  - Server running with extended functionality
+  - Server running with full admin authentication and email forwarding
 - [x] Launch the Project
-  - App running at http://localhost:3000 with admin interface at /admin
+  - App running with configurable admin path and session management
 - [x] Ensure Documentation is Complete
-  - Updated README.md with comprehensive documentation
+  - Updated README.md and .env examples with comprehensive documentation

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CryAMS - Anonymous Message System</title>
+    <title>cryAMS - Anonymous Message System</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -68,24 +68,146 @@
             text-align: center;
             margin-bottom: 30px;
         }
+        .form-container {
+            background: #e9ecef;
+            padding: 30px;
+            margin-top: 10px;
+            border-radius: 8px;
+            margin-top: 40px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        .form-group label {
+            display: block;
+            font-weight: bold;
+            margin-bottom: 5px;
+            color: #333;
+        }
+        .form-group input,
+        .form-group textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+            box-sizing: border-box;
+        }
+        .form-group input:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: #007bff;
+            box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+        }
+        .form-submit {
+            width: 100%;
+            font-size: 16px;
+            margin-top: 10px;
+        }
+        .sticker-preview {
+            background: white;
+            border: 2px dashed #007bff;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 30px 0;
+            text-align: center;
+        }
+        .sticker-mockup {
+            width: 200px;
+            height: 320px;
+            background: linear-gradient(to top, #8b5cf6, #3b82f6);
+            border: 1px solid #ddd;
+            border-radius: 12px;
+            margin: 0 auto;
+            padding: 20px;
+            box-shadow: 0 6px 20px rgba(139, 92, 246, 0.3);
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+        .sticker-header {
+            text-align: center;
+            margin-bottom: 15px;
+        }
+        .sticker-title {
+            font-size: 18px;
+            font-weight: bold;
+            color: #ffffff;
+            margin: 0;
+            text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+        }
+        .sticker-subtitle {
+            font-size: 14px;
+            color: #e0e7ff;
+            margin: 2px 0 0 0;
+            text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+        }
+        .qr-placeholder {
+            width: 100px;
+            height: 100px;
+            background: #ffffff;
+            border: 1px solid #ddd;
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 4px;
+            padding: 5px;
+        }
+        .qr-demo-image {
+            width: 130px;
+            height: 130px;
+            border-radius: 2px;
+        }
+        .sticker-footer {
+            text-align: center;
+            margin-top: 15px;
+        }
+        .sticker-text {
+            font-size: 14px;
+            color: #ffffff;
+            margin: 0;
+            line-height: 1.3;
+            text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+        }
+        .sticker-url {
+            font-size: 12px;
+            color: #e0e7ff;
+            margin: 5px 0 0 0;
+            font-family: monospace;
+            text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+        }
+        .dimensions {
+            position: absolute;
+            font-size: 10px;
+            color: #007bff;
+            font-weight: bold;
+        }
+        .dim-width {
+            bottom: -20px;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+        .dim-height {
+            right: -35px;
+            top: 50%;
+            transform: translateY(-50%) rotate(90deg);
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="welcome">
-            <h1>🔒 CryAMS</h1>
+            <h1>🔒 cryAMS</h1>
             <h2>Anonymous Message System</h2>
             <p>Erstelle QR-Codes für anonyme Nachrichten</p>
         </div>
 
-        <div style="text-align: center; margin: 30px 0;">
-            <a href="/admin" class="btn btn-admin">🛠️ Admin-Bereich öffnen</a>
-            <p style="margin-top: 15px;"><small>Erstelle Profile und QR-Codes für anonyme Nachrichten</small></p>
-        </div>
-
         <div class="features">
             <div class="feature">
-                <h3>� Profile erstellen</h3>
+                <h3>👤 Profile erstellen</h3>
                 <p>Erstelle personalisierte Profile mit Namen, E-Mail und Beschreibung</p>
             </div>
             <div class="feature">
@@ -110,15 +232,167 @@
             </div>
         </div>
 
-        <div style="text-align: center; margin-top: 40px; padding: 20px; background: #e9ecef; border-radius: 8px;">
-            <h3>🚀 So funktioniert es:</h3>
-            <ol style="text-align: left; max-width: 400px; margin: 0 auto;">
-                <li>Profil im Admin-Bereich erstellen</li>
-                <li>QR-Code generieren lassen</li>
-                <li>QR-Code teilen oder ausdrucken</li>
-                <li>Anonyme Nachrichten empfangen</li>
-            </ol>
+        <div class="sticker-preview">
+            <h3>🏷️ So könnte dein QR-Code-Aufkleber aussehen</h3>
+            <p style="margin-bottom: 20px;">Maße: 5cm x 8cm - perfekt für Notebooks, Türen oder andere Oberflächen</p>
+            
+            <div class="sticker-mockup">
+                <div class="dimensions dim-width">5cm</div>
+                <div class="dimensions dim-height">8cm</div>
+                
+                <div class="sticker-header">
+                    <h4 class="sticker-title">🔒 cryAMS</h4>
+                    <p class="sticker-subtitle">Anonymous Message</p>
+                </div>
+                
+                                <div class="qr-placeholder">
+                    <img src="/qr-demo" alt="QR Code für crymg.de" class="qr-demo-image">
+                </div>
+                
+                <div class="sticker-footer">
+                    <p class="sticker-text">Scanne für anonyme<br>Nachrichten</p>
+                    <p class="sticker-url">https://crymg.de</p>
+                </div>
+            </div>
+            
+            <p style="margin-top: 40px; font-size: 12px; color: #666;">
+                <strong>Verwendung:</strong> Auf Laptop, Notebook, Bürotür, Schreibtisch oder überall dort, wo Menschen dir anonym Feedback oder Nachrichten hinterlassen sollen.
+            </p>
+        </div>
+
+        <div class="form-container" style="text-align: center;">
+            <h3>📝 QR-Code beantragen</h3>
+            <p style="margin-bottom: 20px;">Fülle das Formular aus, um deinen persönlichen QR-Code zu beantragen:</p>
+            
+            <form action="/request-qr" method="post" style="max-width: 400px; margin: 0 auto; text-align: left;">
+                <div class="form-group">
+                    <label for="name">Name:</label>
+                    <input type="text" id="name" name="name" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="email">E-Mail-Adresse:</label>
+                    <input type="email" id="email" name="email" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="description">Beschreibung (optional):</label>
+                    <textarea id="description" name="description" rows="3" 
+                              placeholder="Z.B. für welchen Zweck soll der QR-Code verwendet werden?"></textarea>
+                </div>
+
+                <!-- Aufkleber-Bestellung -->
+                <div class="form-group" style="margin-top: 30px; padding-top: 20px; border-top: 2px solid #dee2e6;">
+                    <label style="color: #007bff; font-size: 16px; margin-bottom: 10px;">
+                        🏷️ Physische Aufkleber bestellen (optional)
+                    </label>
+                    <div style="margin-bottom: 10px;">
+                        <input type="checkbox" id="orderStickers" name="orderStickers" onchange="toggleStickerFields()">
+                        <label for="orderStickers" style="display: inline; margin-left: 8px; font-weight: normal;">
+                            Ja, ich möchte physische QR-Code-Aufkleber bestellen
+                        </label>
+                    </div>
+                </div>
+
+                <div id="stickerFields" style="display: none;">
+                    <div class="form-group">
+                        <label for="stickerQuantity">Anzahl Aufkleber:</label>
+                        <select id="stickerQuantity" name="stickerQuantity">
+                            <option value="5">5 Stück (5€)</option>
+                            <option value="10" selected>10 Stück (8€)</option>
+                            <option value="20">20 Stück (15€)</option>
+                            <option value="50">50 Stück (30€)</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="shippingName">Versandname:</label>
+                        <input type="text" id="shippingName" name="shippingName" placeholder="Vor- und Nachname">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="shippingAddress">Straße und Hausnummer:</label>
+                        <input type="text" id="shippingAddress" name="shippingAddress" placeholder="Musterstraße 123">
+                    </div>
+
+                    <div style="display: flex; gap: 10px;">
+                        <div class="form-group" style="flex: 1;">
+                            <label for="shippingZip">PLZ:</label>
+                            <input type="text" id="shippingZip" name="shippingZip" placeholder="12345" maxlength="5">
+                        </div>
+                        <div class="form-group" style="flex: 2;">
+                            <label for="shippingCity">Ort:</label>
+                            <input type="text" id="shippingCity" name="shippingCity" placeholder="Musterstadt">
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="shippingCountry">Land:</label>
+                        <select id="shippingCountry" name="shippingCountry">
+                            <option value="DE" selected>Deutschland</option>
+                            <option value="AT">Österreich</option>
+                            <option value="CH">Schweiz</option>
+                            <option value="OTHER">Anderes Land (Preis auf Anfrage)</option>
+                        </select>
+                    </div>
+
+                    <div style="background: #f8f9fa; padding: 15px; border-radius: 5px; margin: 15px 0; font-size: 14px;">
+                        <strong>📦 Versandinformationen:</strong><br>
+                        • Versand per Deutsche Post als Brief<br>
+                        • Lieferzeit: 3-5 Werktage<br>
+                        • Bezahlung per Rechnung oder PayPal<br>
+                        • Aufkleber: 5cm x 8cm, wetterfest, ablösbar
+                    </div>
+                </div>
+                
+                <div style="text-align: center;">
+                    <button type="submit" class="btn form-submit">
+                        📝 QR-Code beantragen
+                    </button>
+                </div>
+            </form>
+            
+            <p style="margin-top: 20px; font-size: 12px; color: #666;">
+                Deine Anfrage wird an einen Administrator weitergeleitet und nach Prüfung freigeschaltet.
+            </p>
         </div>
     </div>
+
+    <script>
+        function toggleStickerFields() {
+            const checkbox = document.getElementById('orderStickers');
+            const fields = document.getElementById('stickerFields');
+            const submitBtn = document.querySelector('.form-submit');
+            
+            if (checkbox.checked) {
+                fields.style.display = 'block';
+                submitBtn.innerHTML = '📝 QR-Code + Aufkleber beantragen';
+                
+                // Felder als required setzen
+                ['shippingName', 'shippingAddress', 'shippingZip', 'shippingCity'].forEach(id => {
+                    document.getElementById(id).required = true;
+                });
+            } else {
+                fields.style.display = 'none';
+                submitBtn.innerHTML = '📝 QR-Code beantragen';
+                
+                // Required-Attribute entfernen
+                ['shippingName', 'shippingAddress', 'shippingZip', 'shippingCity'].forEach(id => {
+                    document.getElementById(id).required = false;
+                });
+            }
+        }
+
+        // Preis-Update bei Mengen-Änderung
+        document.getElementById('stickerQuantity').addEventListener('change', function() {
+            const submitBtn = document.querySelector('.form-submit');
+            const quantity = this.value;
+            const prices = { '5': '5€', '10': '8€', '20': '15€', '50': '30€' };
+            
+            if (document.getElementById('orderStickers').checked) {
+                submitBtn.innerHTML = `📝 QR-Code + ${quantity} Aufkleber (${prices[quantity]}) beantragen`;
+            }
+        });
+    </script>
 </body>
 </html>

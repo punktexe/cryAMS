@@ -1,9 +1,43 @@
 import express from 'express';
 import { v4 as uuidv4 } from 'uuid';
 import QRCode from 'qrcode';
+import dotenv from 'dotenv';
+import session from 'express-session';
 import { DataStore } from '../common/data-store.js';
+import EmailService from '../common/email-service.js';
+import AdminAuth from '../common/admin-auth.js';
+
+// Lade .env Datei
+dotenv.config();
+
+// Hilfsfunktion für Ländernamen
+function getCountryName(countryCode) {
+  const countries = {
+    'DE': 'Deutschland',
+    'AT': 'Österreich', 
+    'CH': 'Schweiz',
+    'OTHER': 'Anderes Land'
+  };
+  return countries[countryCode] || countryCode;
+}
 
 const app = express();
+const adminAuth = new AdminAuth();
+
+// Initialisiere DataStore und Admin-Auth
+DataStore.initialize();
+adminAuth.initialize();
+
+// Session-Middleware
+app.use(session({
+  secret: process.env.SESSION_SECRET || 'cryAMS-session-secret-' + Math.random(),
+  resave: false,
+  saveUninitialized: false,
+  cookie: { 
+    secure: false, // Für HTTPS auf true setzen
+    maxAge: 24 * 60 * 60 * 1000 // 24 Stunden
+  }
+}));
 
 app.use(express.static('src/frontend'));
 app.use(express.json());
@@ -14,85 +48,918 @@ app.get('/', (req, res) => {
 });
 
 const PORT = process.env.PORT || 3000;
+const DOMAIN = process.env.DOMAIN || `http://localhost:${PORT}`;
+const ADMIN_PATH = process.env.ADMIN_PATH || '/admin';
 
-// Admin route to create new QR code profiles
-app.get('/admin', (req, res) => {
-  const profiles = DataStore.getAllProfiles();
+// Middleware für Admin-Authentifizierung
+function requireAuth(req, res, next) {
+  if (adminAuth.needsSetup()) {
+    return res.redirect(`${ADMIN_PATH}/setup`);
+  }
+  if (req.session.adminLoggedIn) {
+    return next();
+  }
+  res.redirect(`${ADMIN_PATH}/login`);
+}
+
+// Admin Setup Route (nur wenn kein Admin konfiguriert ist)
+app.get(`${ADMIN_PATH}/setup`, (req, res) => {
+  if (!adminAuth.needsSetup()) {
+    return res.redirect(`${ADMIN_PATH}/login`);
+  }
+  
   res.send(`
     <html>
     <head>
       <meta charset="UTF-8">
-      <title>Admin - CryAMS Profile Verwaltung</title>
+      <title>Admin Setup - cryAMS</title>
       <style>
-        body { font-family: Arial, sans-serif; max-width: 1200px; margin: 0 auto; padding: 20px; }
-        .form-group { margin: 15px 0; }
-        .form-group label { display: block; margin-bottom: 5px; font-weight: bold; }
-        .form-group input, .form-group textarea { width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; }
-        .btn { background: #007bff; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; }
-        .btn:hover { background: #0056b3; }
-        .profile-card { border: 1px solid #ddd; padding: 15px; margin: 10px 0; border-radius: 8px; }
-        .qr-code { max-width: 200px; }
-        .messages { background: #f8f9fa; padding: 10px; margin-top: 10px; border-radius: 4px; }
+        body { 
+          font-family: Arial, sans-serif; 
+          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          min-height: 100vh;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          margin: 0;
+        }
+        .setup-container {
+          background: white;
+          padding: 40px;
+          border-radius: 12px;
+          box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+          width: 100%;
+          max-width: 500px;
+        }
+        .setup-header {
+          text-align: center;
+          margin-bottom: 30px;
+        }
+        .setup-header h1 {
+          color: #333;
+          margin: 0;
+          font-size: 28px;
+        }
+        .setup-header p {
+          color: #666;
+          margin: 10px 0 0 0;
+        }
+        .form-group {
+          margin-bottom: 20px;
+        }
+        .form-group label {
+          display: block;
+          margin-bottom: 8px;
+          font-weight: bold;
+          color: #333;
+        }
+        .form-group input {
+          width: 100%;
+          padding: 12px;
+          border: 2px solid #e1e5e9;
+          border-radius: 6px;
+          font-size: 16px;
+          transition: border-color 0.3s;
+          box-sizing: border-box;
+        }
+        .form-group input:focus {
+          outline: none;
+          border-color: #667eea;
+        }
+        .btn {
+          width: 100%;
+          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          color: white;
+          padding: 12px;
+          border: none;
+          border-radius: 6px;
+          font-size: 16px;
+          cursor: pointer;
+          transition: transform 0.2s;
+        }
+        .btn:hover {
+          transform: translateY(-1px);
+        }
+        .error {
+          background: #f8d7da;
+          color: #721c24;
+          padding: 12px;
+          border-radius: 6px;
+          margin-bottom: 20px;
+          border: 1px solid #f5c6cb;
+        }
+        .info {
+          background: #d4edda;
+          color: #155724;
+          padding: 15px;
+          border-radius: 6px;
+          margin-bottom: 20px;
+          border: 1px solid #c3e6cb;
+        }
+        .footer {
+          text-align: center;
+          margin-top: 30px;
+          color: #666;
+          font-size: 14px;
+        }
       </style>
     </head>
     <body>
-      <h1>CryAMS - Profile Verwaltung</h1>
-      
-      <h2>Neues Profil erstellen</h2>
-      <form action="/admin/create-profile" method="post">
-        <div class="form-group">
-          <label>Name:</label>
-          <input type="text" name="name" required>
+      <div class="setup-container">
+        <div class="setup-header">
+          <h1>🔐 Admin Setup</h1>
+          <p>Erstelle deinen Admin-Zugang für cryAMS</p>
         </div>
-        <div class="form-group">
-          <label>E-Mail:</label>
-          <input type="email" name="email" required>
+        
+        <div class="info">
+          📋 <strong>Wichtige Hinweise:</strong><br>
+          • Wähle einen sicheren Benutzernamen<br>
+          • Passwort muss mindestens 6 Zeichen haben<br>
+          • Daten werden verschlüsselt gespeichert<br>
+          • Diese Konfiguration erfolgt nur einmal
         </div>
-        <div class="form-group">
-          <label>Beschreibung:</label>
-          <textarea name="description" rows="3"></textarea>
+        
+        ${req.session.setupError ? `<div class="error">❌ ${req.session.setupError}</div>` : ''}
+        
+        <form method="post" action="${ADMIN_PATH}/setup">
+          <div class="form-group">
+            <label>👤 Admin Benutzername:</label>
+            <input type="text" name="username" required autocomplete="username" 
+                   placeholder="z.B. admin oder dein Name" value="${req.body?.username || ''}">
+          </div>
+          <div class="form-group">
+            <label>🔒 Admin Passwort:</label>
+            <input type="password" name="password" required autocomplete="new-password"
+                   placeholder="Mindestens 6 Zeichen">
+          </div>
+          <div class="form-group">
+            <label>🔒 Passwort bestätigen:</label>
+            <input type="password" name="confirmPassword" required autocomplete="new-password"
+                   placeholder="Passwort erneut eingeben">
+          </div>
+          <button type="submit" class="btn">🚀 Admin-Zugang erstellen</button>
+        </form>
+        
+        <div class="footer">
+          <p>cryAMS - Anonymous Message System</p>
         </div>
-        <button type="submit" class="btn">Profil erstellen & QR-Code generieren</button>
-      </form>
+      </div>
+    </body>
+    </html>
+  `);
+  
+  // Lösche Setup-Error nach dem Anzeigen
+  delete req.session.setupError;
+});
 
-      <h2>Bestehende Profile</h2>
-      ${profiles.map(profile => `
-        <div class="profile-card">
-          <h3>${profile.name} (${profile.email})</h3>
-          <p><strong>UUID:</strong> ${profile.uuid}</p>
-          <p><strong>URL:</strong> <a href="/${profile.uuid}" target="_blank">http://localhost:${PORT}/${profile.uuid}</a></p>
-          <p><strong>Beschreibung:</strong> ${profile.description || 'Keine Beschreibung'}</p>
-          <p><strong>Erstellt:</strong> ${new Date(profile.createdAt).toLocaleString('de-DE')}</p>
+// Admin Setup POST Route
+app.post(`${ADMIN_PATH}/setup`, async (req, res) => {
+  if (!adminAuth.needsSetup()) {
+    return res.redirect(`${ADMIN_PATH}/login`);
+  }
+  
+  const { username, password, confirmPassword } = req.body;
+  
+  try {
+    // Validierung
+    if (!username || username.trim().length < 3) {
+      req.session.setupError = 'Benutzername muss mindestens 3 Zeichen haben';
+      return res.redirect(`${ADMIN_PATH}/setup`);
+    }
+    
+    if (!password || password.length < 6) {
+      req.session.setupError = 'Passwort muss mindestens 6 Zeichen haben';
+      return res.redirect(`${ADMIN_PATH}/setup`);
+    }
+    
+    if (password !== confirmPassword) {
+      req.session.setupError = 'Passwörter stimmen nicht überein';
+      return res.redirect(`${ADMIN_PATH}/setup`);
+    }
+    
+    // Admin-Konfiguration erstellen
+    await adminAuth.createAdminConfig(username.trim(), password);
+    
+    console.log(`🔐 Admin-Setup abgeschlossen für: ${username.trim()}`);
+    
+    // Automatisch einloggen
+    req.session.adminLoggedIn = true;
+    req.session.adminUsername = username.trim();
+    
+    res.redirect(ADMIN_PATH);
+    
+  } catch (error) {
+    console.error('Setup-Fehler:', error);
+    req.session.setupError = 'Ein Fehler ist aufgetreten: ' + error.message;
+    res.redirect(`${ADMIN_PATH}/setup`);
+  }
+});
+
+// Admin Login Route
+app.get(`${ADMIN_PATH}/login`, (req, res) => {
+  if (adminAuth.needsSetup()) {
+    return res.redirect(`${ADMIN_PATH}/setup`);
+  }
+  
+  res.send(`
+    <html>
+    <head>
+      <meta charset="UTF-8">
+      <title>Admin Login - cryAMS</title>
+      <style>
+        body { 
+          font-family: Arial, sans-serif; 
+          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          min-height: 100vh;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          margin: 0;
+        }
+        .login-container {
+          background: white;
+          padding: 40px;
+          border-radius: 12px;
+          box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+          width: 100%;
+          max-width: 400px;
+        }
+        .login-header {
+          text-align: center;
+          margin-bottom: 30px;
+        }
+        .login-header h1 {
+          color: #333;
+          margin: 0;
+          font-size: 28px;
+        }
+        .login-header p {
+          color: #666;
+          margin: 10px 0 0 0;
+        }
+        .form-group {
+          margin-bottom: 20px;
+        }
+        .form-group label {
+          display: block;
+          margin-bottom: 8px;
+          font-weight: bold;
+          color: #333;
+        }
+        .form-group input {
+          width: 100%;
+          padding: 12px;
+          border: 2px solid #e1e5e9;
+          border-radius: 6px;
+          font-size: 16px;
+          transition: border-color 0.3s;
+          box-sizing: border-box;
+        }
+        .form-group input:focus {
+          outline: none;
+          border-color: #667eea;
+        }
+        .btn {
+          width: 100%;
+          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          color: white;
+          padding: 12px;
+          border: none;
+          border-radius: 6px;
+          font-size: 16px;
+          cursor: pointer;
+          transition: transform 0.2s;
+        }
+        .btn:hover {
+          transform: translateY(-1px);
+        }
+        .error {
+          background: #f8d7da;
+          color: #721c24;
+          padding: 12px;
+          border-radius: 6px;
+          margin-bottom: 20px;
+          border: 1px solid #f5c6cb;
+        }
+        .footer {
+          text-align: center;
+          margin-top: 30px;
+          color: #666;
+          font-size: 14px;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="login-container">
+        <div class="login-header">
+          <h1>🔐 Admin Login</h1>
+          <p>cryAMS Verwaltung</p>
+        </div>
+        
+        ${req.session.loginError ? `<div class="error">❌ ${req.session.loginError}</div>` : ''}
+        
+        <form method="post" action="${ADMIN_PATH}/login">
+          <div class="form-group">
+            <label>👤 Benutzername:</label>
+            <input type="text" name="username" required autocomplete="username">
+          </div>
+          <div class="form-group">
+            <label>🔒 Passwort:</label>
+            <input type="password" name="password" required autocomplete="current-password">
+          </div>
+          <button type="submit" class="btn">🚀 Anmelden</button>
+        </form>
+        
+        <div class="footer">
+          <p>cryAMS - Anonymous Message System</p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `);
+  
+  // Lösche Login-Error nach dem Anzeigen
+  delete req.session.loginError;
+});
+
+// Admin Login POST Route
+app.post(`${ADMIN_PATH}/login`, async (req, res) => {
+  const { username, password } = req.body;
+  
+  try {
+    const isValid = await adminAuth.verifyLogin(username, password);
+    
+    if (isValid) {
+      req.session.adminLoggedIn = true;
+      req.session.adminUsername = username;
+      console.log(`🔐 Admin-Login erfolgreich: ${username}`);
+      res.redirect(ADMIN_PATH);
+    } else {
+      req.session.loginError = 'Ungültiger Benutzername oder Passwort';
+      res.redirect(`${ADMIN_PATH}/login`);
+    }
+  } catch (error) {
+    console.error('Login-Fehler:', error);
+    req.session.loginError = 'Ein Fehler ist aufgetreten';
+    res.redirect(`${ADMIN_PATH}/login`);
+  }
+});
+
+// Admin Logout Route
+app.post(`${ADMIN_PATH}/logout`, (req, res) => {
+  const username = req.session.adminUsername;
+  req.session.destroy((err) => {
+    if (err) {
+      console.error('Logout-Fehler:', err);
+    } else {
+      console.log(`🔐 Admin-Logout: ${username}`);
+    }
+    res.redirect(`${ADMIN_PATH}/login`);
+  });
+});
+
+// Admin route to create new QR code profiles (jetzt mit Auth)
+app.get(ADMIN_PATH, requireAuth, (req, res) => {
+  const profiles = DataStore.getAllProfiles();
+  const pendingRequests = DataStore.getAllPendingRequests();
+  
+  res.send(`
+    <html>
+    <head>
+      <meta charset="UTF-8">
+      <title>Admin - cryAMS Profile Verwaltung</title>
+      <style>
+        body { 
+          font-family: Arial, sans-serif; 
+          max-width: 1200px; 
+          margin: 0 auto; 
+          padding: 20px; 
+          background: #f8f9fa; 
+        }
+        
+        .header {
+          background: white;
+          padding: 20px;
+          border-radius: 8px;
+          margin-bottom: 20px;
+          box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .tabs {
+          display: flex;
+          background: white;
+          border-radius: 8px 8px 0 0;
+          box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+          overflow: hidden;
+        }
+        
+        .tab {
+          flex: 1;
+          padding: 15px 20px;
+          background: #e9ecef;
+          border: none;
+          cursor: pointer;
+          font-size: 16px;
+          transition: all 0.3s;
+          position: relative;
+        }
+        
+        .tab:hover {
+          background: #dee2e6;
+        }
+        
+        .tab.active {
+          background: white;
+          color: #007bff;
+          font-weight: bold;
+        }
+        
+        .tab-badge {
+          background: #dc3545;
+          color: white;
+          padding: 2px 8px;
+          border-radius: 12px;
+          font-size: 12px;
+          margin-left: 8px;
+        }
+        
+        .tab-content {
+          background: white;
+          padding: 30px;
+          border-radius: 0 0 8px 8px;
+          box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+          min-height: 400px;
+        }
+        
+        .tab-panel {
+          display: none;
+        }
+        
+        .tab-panel.active {
+          display: block;
+        }
+        
+        .form-group { 
+          margin: 15px 0; 
+        }
+        
+        .form-group label { 
+          display: block; 
+          margin-bottom: 5px; 
+          font-weight: bold; 
+          color: #495057;
+        }
+        
+        .form-group input, .form-group textarea { 
+          width: 100%; 
+          padding: 12px; 
+          border: 1px solid #ddd; 
+          border-radius: 6px; 
+          font-size: 14px;
+          box-sizing: border-box;
+        }
+        
+        .form-group input:focus, .form-group textarea:focus {
+          outline: none;
+          border-color: #007bff;
+          box-shadow: 0 0 0 2px rgba(0,123,255,0.25);
+        }
+        
+        .btn { 
+          background: #007bff; 
+          color: white; 
+          padding: 12px 24px; 
+          border: none; 
+          border-radius: 6px; 
+          cursor: pointer; 
+          text-decoration: none; 
+          display: inline-block; 
+          margin: 5px; 
+          font-size: 14px;
+          transition: all 0.3s;
+        }
+        
+        .btn:hover { 
+          background: #0056b3; 
+          transform: translateY(-1px);
+        }
+        
+        .btn-success { 
+          background: #28a745; 
+        }
+        
+        .btn-success:hover { 
+          background: #218838; 
+        }
+        
+        .btn-danger { 
+          background: #dc3545; 
+        }
+        
+        .btn-danger:hover { 
+          background: #c82333; 
+        }
+        
+        .profile-card, .request-card { 
+          border: 1px solid #e9ecef; 
+          padding: 20px; 
+          margin: 15px 0; 
+          border-radius: 8px; 
+          background: #f8f9fa;
+        }
+        
+        .request-card { 
+          background: #fff3cd; 
+          border-color: #ffeaa7; 
+        }
+        
+        .qr-code { 
+          max-width: 200px; 
+          border: 1px solid #ddd;
+          border-radius: 4px;
+        }
+        
+        .stats-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+          gap: 20px;
+          margin-bottom: 30px;
+        }
+        
+        .stat-card {
+          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          color: white;
+          padding: 20px;
+          border-radius: 8px;
+          text-align: center;
+        }
+        
+        .stat-number {
+          font-size: 2.5em;
+          font-weight: bold;
+          margin-bottom: 5px;
+        }
+        
+        .stat-label {
+          font-size: 0.9em;
+          opacity: 0.9;
+        }
+        
+        .empty-state {
+          text-align: center;
+          padding: 60px 20px;
+          color: #6c757d;
+        }
+        
+        .empty-state-icon {
+          font-size: 4em;
+          margin-bottom: 20px;
+        }
+      </style>
+      <script>
+        function showTab(tabId) {
+          // Hide all tab panels
+          document.querySelectorAll('.tab-panel').forEach(panel => {
+            panel.classList.remove('active');
+          });
           
-          <h4>QR-Code:</h4>
-          <img src="/qr/${profile.uuid}" alt="QR Code" class="qr-code">
+          // Remove active class from all tabs
+          document.querySelectorAll('.tab').forEach(tab => {
+            tab.classList.remove('active');
+          });
           
-          <h4>Nachrichten (${profile.messages.length}):</h4>
-          <div class="messages">
-            ${profile.messages.length === 0 ? 'Keine Nachrichten' : 
-              profile.messages.map(msg => `
-                <div style="border-bottom: 1px solid #dee2e6; padding: 10px 0;">
-                  <strong>${msg.senderName}</strong> - ${new Date(msg.timestamp).toLocaleString('de-DE')}<br>
-                  ${msg.content}
-                </div>
-              `).join('')
-            }
+          // Show selected tab panel
+          document.getElementById(tabId).classList.add('active');
+          
+          // Add active class to clicked tab
+          event.target.classList.add('active');
+        }
+        
+        // Show first tab by default
+        window.onload = function() {
+          document.querySelector('.tab').click();
+        }
+      </script>
+    </head>
+    <body>
+      <div class="header">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <div>
+            <h1>🔐 cryAMS - Profile Verwaltung</h1>
+            <p>Verwalte anonyme Profile und QR-Codes für das verschlüsselte Nachrichtensystem</p>
+          </div>
+          <div style="text-align: right;">
+            <p style="margin: 0; color: #666; font-size: 14px;">👤 Angemeldet als: <strong>${req.session.adminUsername}</strong></p>
+            <form method="post" action="${ADMIN_PATH}/logout" style="margin-top: 10px;">
+              <button type="submit" class="btn btn-danger" style="font-size: 14px; padding: 8px 16px;">🚪 Abmelden</button>
+            </form>
           </div>
         </div>
-      `).join('')}
+      </div>
+      
+      <div class="tabs">
+        <button class="tab" onclick="showTab('tab-create')">
+          ➕ Neues Profil erstellen
+        </button>
+        <button class="tab" onclick="showTab('tab-overview')">
+          📊 Aktive Profile (${profiles.length})
+        </button>
+        <button class="tab" onclick="showTab('tab-profiles')">
+          👥 Bestehende Profile
+        </button>
+        <button class="tab" onclick="showTab('tab-pending')">
+          ⏳ Zu prüfende Profile
+          ${pendingRequests.length > 0 ? `<span class="tab-badge">${pendingRequests.length}</span>` : ''}
+        </button>
+      </div>
+      
+      <div class="tab-content">
+        <!-- Tab: Neues Profil erstellen -->
+        <div id="tab-create" class="tab-panel">
+          <h2>➕ Neues Profil direkt erstellen</h2>
+          <p>Erstelle sofort ein neues Profil mit QR-Code, ohne Genehmigungsverfahren.</p>
+          
+          <form action="${ADMIN_PATH}/create-profile" method="post">
+            <div class="form-group">
+              <label>👤 Name:</label>
+              <input type="text" name="name" required placeholder="z.B. Max Mustermann">
+            </div>
+            <div class="form-group">
+              <label>📧 E-Mail:</label>
+              <input type="email" name="email" required placeholder="max@example.com">
+            </div>
+            <div class="form-group">
+              <label>📝 Beschreibung (optional):</label>
+              <textarea name="description" rows="3" placeholder="Optionale Beschreibung für das Profil..."></textarea>
+            </div>
+            <button type="submit" class="btn">🚀 Profil erstellen & QR-Code generieren</button>
+          </form>
+        </div>
+        
+        <!-- Tab: Übersicht/Statistiken -->
+        <div id="tab-overview" class="tab-panel">
+          <h2>📊 System Übersicht</h2>
+          
+          <div class="stats-grid">
+            <div class="stat-card">
+              <div class="stat-number">${profiles.length}</div>
+              <div class="stat-label">Aktive Profile</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-number">${pendingRequests.length}</div>
+              <div class="stat-label">Ausstehende Anfragen</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-number">${profiles.length + pendingRequests.length}</div>
+              <div class="stat-label">Gesamt Anfragen</div>
+            </div>
+          </div>
+          
+          <h3>🎯 Schnellaktionen</h3>
+          <div style="display: flex; gap: 15px; flex-wrap: wrap;">
+            <button class="btn" onclick="showTab('tab-create')">➕ Neues Profil erstellen</button>
+            <button class="btn btn-success" onclick="showTab('tab-profiles')">👥 Profile verwalten</button>
+            ${pendingRequests.length > 0 ? `<button class="btn btn-danger" onclick="showTab('tab-pending')">⏳ Anfragen bearbeiten (${pendingRequests.length})</button>` : ''}
+          </div>
+          
+          ${profiles.length > 0 ? `
+          <h3>📈 Letzte Aktivitäten</h3>
+          <div style="background: #f8f9fa; padding: 20px; border-radius: 8px;">
+            ${profiles.slice(-3).reverse().map(profile => `
+              <div style="padding: 10px 0; border-bottom: 1px solid #e9ecef;">
+                <strong>${profile.name}</strong> (${profile.email}) - 
+                Erstellt: ${new Date(profile.createdAt).toLocaleDateString('de-DE')}
+              </div>
+            `).join('')}
+          </div>
+          ` : ''}
+        </div>
+        
+        <!-- Tab: Bestehende Profile -->
+        <div id="tab-profiles" class="tab-panel">
+          <h2>👥 Bestehende Profile (${profiles.length})</h2>
+          
+          ${profiles.length === 0 ? `
+          <div class="empty-state">
+            <div class="empty-state-icon">📭</div>
+            <h3>Noch keine Profile vorhanden</h3>
+            <p>Erstelle dein erstes Profil über den Tab "Neues Profil erstellen"</p>
+            <button class="btn" onclick="showTab('tab-create')">➕ Jetzt Profil erstellen</button>
+          </div>
+          ` : profiles.map(profile => `
+            <div class="profile-card">
+              <h3>👤 ${profile.name}</h3>
+              <div style="display: grid; grid-template-columns: 1fr 200px; gap: 20px;">
+                <div>
+                  <p><strong>📧 E-Mail:</strong> ${profile.email}</p>
+                  <p><strong>🆔 UUID:</strong> <code>${profile.uuid}</code></p>
+                  <p><strong>🔗 URL:</strong> <a href="/${profile.uuid}" target="_blank">${DOMAIN}/${profile.uuid}</a></p>
+                  <p><strong>📝 Beschreibung:</strong> ${profile.description || 'Keine Beschreibung'}</p>
+                  <p><strong>📅 Erstellt:</strong> ${new Date(profile.createdAt).toLocaleDateString('de-DE')}</p>
+                  
+                  <div style="background: #e7f3ff; padding: 15px; border-radius: 8px; margin-top: 15px;">
+                    <h4 style="margin-top: 0; color: #0066cc;">📧 E-Mail Weiterleitung</h4>
+                    <p style="margin-bottom: 0; color: #333;">
+                      Alle Nachrichten werden direkt an <strong>${profile.email}</strong> weitergeleitet.
+                    </p>
+                  </div>
+                </div>
+                
+                <div style="text-align: center;">
+                  <h4>📱 QR-Code:</h4>
+                  <img src="/qr/${profile.uuid}" alt="QR Code" class="qr-code">
+                </div>
+              </div>
+              
+              <div style="margin-top: 20px; text-align: right;">
+                <form action="${ADMIN_PATH}/delete-profile/${profile.uuid}" method="post" style="display: inline;" 
+                      onsubmit="return confirm('Profil wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.')">
+                  <button type="submit" class="btn btn-danger">
+                    🗑️ Profil löschen
+                  </button>
+                </form>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+        
+        <!-- Tab: Ausstehende Anfragen -->
+        <div id="tab-pending" class="tab-panel">
+          <h2>⏳ Zu prüfende Profile ${pendingRequests.length > 0 ? `<span class="tab-badge">${pendingRequests.length}</span>` : ''}</h2>
+          
+          ${pendingRequests.length === 0 ? `
+          <div class="empty-state">
+            <div class="empty-state-icon">✅</div>
+            <h3>Keine ausstehenden Anfragen</h3>
+            <p>Alle Anfragen wurden bearbeitet. Super Arbeit! 🎉</p>
+          </div>
+          ` : `
+          <p>Hier findest du alle Anfragen von Benutzern, die einen QR-Code beantragt haben und auf Genehmigung warten.</p>
+          ${pendingRequests.map(request => `
+            <div class="request-card">
+              <h3>📋 Anfrage von: ${request.name}</h3>
+              <p><strong>📧 E-Mail:</strong> ${request.email}</p>
+              <p><strong>📝 Beschreibung:</strong> ${request.description || 'Keine Beschreibung angegeben'}</p>
+              <p><strong>📅 Eingereicht am:</strong> ${new Date(request.createdAt).toLocaleDateString('de-DE')} um ${new Date(request.createdAt).toLocaleTimeString('de-DE')}</p>
+              <p><strong>🆔 Anfrage-ID:</strong> <code>${request.uuid}</code></p>
+              
+              ${request.stickerOrder ? `
+                <div style="background: #fff3cd; padding: 15px; border-radius: 5px; margin: 15px 0; border-left: 4px solid #ffc107;">
+                  <h4 style="margin: 0 0 10px 0; color: #856404;">📦 Aufkleber-Bestellung</h4>
+                  <p style="margin: 5px 0;"><strong>Anzahl:</strong> ${request.stickerOrder.quantity} Stück</p>
+                  <p style="margin: 5px 0;"><strong>Preis:</strong> ${request.stickerOrder.price}€</p>
+                  <p style="margin: 5px 0;"><strong>Versandadresse:</strong></p>
+                  <div style="margin-left: 15px;">
+                    ${request.stickerOrder.shipping.name}<br>
+                    ${request.stickerOrder.shipping.address}<br>
+                    ${request.stickerOrder.shipping.zip} ${request.stickerOrder.shipping.city}<br>
+                    ${getCountryName(request.stickerOrder.shipping.country)}
+                  </div>
+                </div>
+              ` : ''}
+              
+              <div style="margin-top: 20px;">
+                <form action="${ADMIN_PATH}/approve-request/${request.uuid}" method="post" style="display: inline;">
+                  <button type="submit" class="btn btn-success">✅ Genehmigen & Profil erstellen</button>
+                </form>
+                <form action="${ADMIN_PATH}/reject-request/${request.uuid}" method="post" style="display: inline;">
+                  <button type="submit" class="btn btn-danger" onclick="return confirm('Anfrage wirklich ablehnen?')">❌ Ablehnen</button>
+                </form>
+              </div>
+            </div>
+          `).join('')}
+          `}
+        </div>
+      </div>
     </body>
     </html>
   `);
 });
 
 // Create new profile
-app.post('/admin/create-profile', (req, res) => {
+app.post(`${ADMIN_PATH}/create-profile`, requireAuth, (req, res) => {
   const { name, email, description } = req.body;
   const uuid = uuidv4();
   
   DataStore.createProfile({ uuid, name, email, description });
   
-  res.redirect('/admin');
+  res.redirect(ADMIN_PATH);
+});
+
+// Request QR code from main page (creates pending request)
+app.post('/request-qr', (req, res) => {
+  const { 
+    name, 
+    email, 
+    description, 
+    orderStickers,
+    stickerQuantity,
+    shippingName,
+    shippingAddress,
+    shippingZip,
+    shippingCity,
+    shippingCountry
+  } = req.body;
+  
+  const uuid = uuidv4();
+  
+  // Basis-Request-Daten
+  const requestData = { uuid, name, email, description };
+  
+  // Aufkleber-Bestellung hinzufügen, falls gewünscht
+  if (orderStickers === 'on') {
+    const stickerPrices = { '5': 5, '10': 8, '20': 15, '50': 30 };
+    requestData.stickerOrder = {
+      quantity: parseInt(stickerQuantity) || 10,
+      price: stickerPrices[stickerQuantity] || 8,
+      shipping: {
+        name: shippingName,
+        address: shippingAddress,
+        zip: shippingZip,
+        city: shippingCity,
+        country: shippingCountry
+      }
+    };
+  }
+  
+  DataStore.createPendingRequest(requestData);
+  
+  const hasStickerOrder = orderStickers === 'on';
+  const stickerText = hasStickerOrder ? 
+    `<p><strong>📦 Aufkleber-Bestellung:</strong> ${requestData.stickerOrder.quantity} Stück (${requestData.stickerOrder.price}€)</p>` : '';
+  
+  const shippingDetails = hasStickerOrder ? 
+    `<div class="order-details"><strong>📦 Versandadresse:</strong><br>` +
+    `${requestData.stickerOrder.shipping.name}<br>` +
+    `${requestData.stickerOrder.shipping.address}<br>` +
+    `${requestData.stickerOrder.shipping.zip} ${requestData.stickerOrder.shipping.city}<br>` +
+    `${getCountryName(requestData.stickerOrder.shipping.country)}</div>` : '';
+  
+  const orderNote = hasStickerOrder ? 
+    '<p><small>Die Aufkleber werden nach Freischaltung des QR-Codes produziert und versendet.</small></p>' : '';
+  
+  res.send(`
+    <html>
+    <head>
+      <meta charset="UTF-8">
+      <title>Anfrage gesendet - cryAMS</title>
+      <style>
+        body { font-family: Arial, sans-serif; max-width: 600px; margin: 50px auto; padding: 20px; text-align: center; }
+        .success { background: #d4edda; color: #155724; padding: 20px; border-radius: 8px; margin: 20px 0; }
+        .btn { background: #007bff; color: white; padding: 10px 20px; border: none; border-radius: 4px; text-decoration: none; display: inline-block; margin-top: 20px; }
+        .order-details { background: #fff3cd; color: #856404; padding: 15px; border-radius: 5px; margin: 10px 0; text-align: left; }
+      </style>
+    </head>
+    <body>
+      <h1>✅ Anfrage gesendet</h1>
+      <div class="success">
+        <h3>Deine ${hasStickerOrder ? 'QR-Code-Anfrage mit Aufkleber-Bestellung' : 'QR-Code-Anfrage'} wurde erfolgreich übermittelt!</h3>
+        <p>Ein Administrator wird deine Anfrage prüfen und freischalten.</p>
+        ${stickerText}
+        ${shippingDetails}
+        <p>Du erhältst eine Benachrichtigung per E-Mail, sobald dein QR-Code verfügbar ist.</p>
+        ${orderNote}
+      </div>
+      <a href="/" class="btn">Zurück zur Hauptseite</a>
+    </body>
+    </html>
+  `);
+});
+
+// Delete profile
+app.post(`${ADMIN_PATH}/delete-profile/:uuid`, requireAuth, (req, res) => {
+  const { uuid } = req.params;
+  const deleted = DataStore.deleteProfile(uuid);
+  
+  if (deleted) {
+    console.log(`🗑️ Profil ${uuid} gelöscht`);
+  }
+  
+  res.redirect(ADMIN_PATH);
+});
+
+// Approve pending request
+app.post(`${ADMIN_PATH}/approve-request/:uuid`, requireAuth, (req, res) => {
+  const { uuid } = req.params;
+  const approved = DataStore.approvePendingRequest(uuid);
+  
+  if (approved) {
+    console.log(`✅ Anfrage ${uuid} genehmigt und Profil erstellt`);
+  }
+  
+  res.redirect(ADMIN_PATH);
+});
+
+// Reject pending request
+app.post(`${ADMIN_PATH}/reject-request/:uuid`, requireAuth, (req, res) => {
+  const { uuid } = req.params;
+  const rejected = DataStore.rejectPendingRequest(uuid);
+  
+  if (rejected) {
+    console.log(`❌ Anfrage ${uuid} abgelehnt`);
+  }
+  
+  res.redirect(ADMIN_PATH);
 });
 
 // Generate QR code for profile
@@ -105,7 +972,7 @@ app.get('/qr/:uuid', async (req, res) => {
   }
   
   try {
-    const url = `http://localhost:${PORT}/${uuid}`;
+    const url = `${DOMAIN}/${uuid}`;
     const qrCodeDataURL = await QRCode.toDataURL(url);
     const base64Data = qrCodeDataURL.replace(/^data:image\/png;base64,/, '');
     const buffer = Buffer.from(base64Data, 'base64');
@@ -114,6 +981,28 @@ app.get('/qr/:uuid', async (req, res) => {
     res.send(buffer);
   } catch (error) {
     res.status(500).send('Fehler beim Generieren des QR-Codes');
+  }
+});
+
+// Demo QR code for preview
+app.get('/qr-demo', async (req, res) => {
+  try {
+    const url = 'https://crymg.de';
+    const qrCodeDataURL = await QRCode.toDataURL(url, {
+      width: 200,
+      margin: 2,
+      color: {
+        dark: '#000000',
+        light: '#FFFFFF'
+      }
+    });
+    const base64Data = qrCodeDataURL.replace(/^data:image\/png;base64,/, '');
+    const buffer = Buffer.from(base64Data, 'base64');
+    
+    res.setHeader('Content-Type', 'image/png');
+    res.send(buffer);
+  } catch (error) {
+    res.status(500).send('Fehler beim Generieren des Demo QR-Codes');
   }
 });
 
@@ -138,7 +1027,7 @@ app.get('/:uuid', (req, res) => {
     <html>
     <head>
       <meta charset="UTF-8">
-      <title>Nachricht an ${profile.name}</title>
+      <title>Nachricht senden</title>
       <style>
         body { font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; }
         .profile-info { background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px; text-align: center; }
@@ -153,8 +1042,12 @@ app.get('/:uuid', (req, res) => {
     <body>
       <div class="profile-info">
         <h1>📩 Nachricht senden</h1>
-        <h2>${profile.name}</h2>
         <p>${profile.description || 'Sende eine anonyme Nachricht'}</p>
+        <div style="background: #fff3cd; padding: 10px; border-radius: 5px; margin-top: 10px;">
+          <small style="color: #856404;">
+            🔒 Diese Nachricht wird anonym per E-Mail weitergeleitet und nicht gespeichert.
+          </small>
+        </div>
       </div>
       
       <form action="/${uuid}/message" method="post">
@@ -174,39 +1067,110 @@ app.get('/:uuid', (req, res) => {
 });
 
 // Handle message submission
-app.post('/:uuid/message', (req, res) => {
+app.post('/:uuid/message', async (req, res) => {
   const { uuid } = req.params;
   const { content, senderName } = req.body;
   
-  const success = DataStore.addMessage(uuid, { content, senderName });
+  const profile = DataStore.getProfile(uuid);
   
-  if (!success) {
-    return res.status(404).send('Profil nicht gefunden');
+  if (!profile) {
+    return res.status(404).send(`
+      <html>
+      <head>
+        <meta charset="UTF-8">
+        <title>Profil nicht gefunden</title>
+        <style>
+          body { font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; text-align: center; }
+          .error { background: #f8d7da; color: #721c24; padding: 20px; border-radius: 8px; margin: 20px 0; }
+        </style>
+      </head>
+      <body>
+        <div class="error">
+          <h2>❌ Profil nicht gefunden</h2>
+          <p>Das angeforderte Profil existiert nicht.</p>
+        </div>
+      </body>
+      </html>
+    `);
   }
-  
-  res.send(`
-    <html>
-    <head>
-      <meta charset="UTF-8">
-      <title>Nachricht gesendet</title>
-      <style>
-        body { font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; text-align: center; }
-        .success { background: #d4edda; color: #155724; padding: 20px; border-radius: 8px; margin: 20px 0; }
-        .btn { background: #007bff; color: white; padding: 10px 20px; text-decoration: none; border-radius: 4px; display: inline-block; margin-top: 20px; }
-      </style>
-    </head>
-    <body>
-      <div class="success">
-        <h2>✅ Nachricht erfolgreich gesendet!</h2>
-        <p>Deine Nachricht wurde anonym übermittelt.</p>
-      </div>
-      <a href="/${uuid}" class="btn">Weitere Nachricht senden</a>
-    </body>
-    </html>
-  `);
+
+  // Nachricht per E-Mail weiterleiten
+  const messageData = {
+    content,
+    senderName: senderName || 'Anonym',
+    timestamp: new Date().toISOString()
+  };
+
+  try {
+    const emailResult = await EmailService.sendAnonymousMessage(
+      profile.email,
+      profile.name,
+      messageData
+    );
+
+    if (emailResult.success) {
+      res.send(`
+        <html>
+        <head>
+          <meta charset="UTF-8">
+          <title>Nachricht gesendet</title>
+          <style>
+            body { font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; text-align: center; }
+            .success { background: #d4edda; color: #155724; padding: 20px; border-radius: 8px; margin: 20px 0; }
+            .info { background: #e7f3ff; color: #0066cc; padding: 15px; border-radius: 8px; margin: 20px 0; }
+            .final { background: #f8f9fa; color: #495057; padding: 20px; border-radius: 8px; margin: 20px 0; }
+          </style>
+        </head>
+        <body>
+          <div class="success">
+            <h2>✅ Nachricht erfolgreich gesendet!</h2>
+            <p>Deine anonyme Nachricht wurde per E-Mail weitergeleitet.</p>
+          </div>
+          
+          <div class="info">
+            <h3>🔒 Datenschutz</h3>
+            <p>
+              Die Nachricht wurde sofort weitergeleitet und wird nicht in unserem System gespeichert.<br>
+              Deine Anonymität bleibt vollständig gewahrt.
+            </p>
+          </div>
+          
+          <div class="final">
+            <p>Diese Seite kann jetzt geschlossen werden.</p>
+          </div>
+        </body>
+        </html>
+      `);
+    } else {
+      throw new Error(emailResult.error);
+    }
+  } catch (error) {
+    console.error('Fehler beim E-Mail-Versand:', error);
+    
+    res.status(500).send(`
+      <html>
+      <head>
+        <meta charset="UTF-8">
+        <title>Fehler beim Senden</title>
+        <style>
+          body { font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; text-align: center; }
+          .error { background: #f8d7da; color: #721c24; padding: 20px; border-radius: 8px; margin: 20px 0; }
+        </style>
+      </head>
+      <body>
+        <div class="error">
+          <h2>❌ Fehler beim Senden</h2>
+          <p>Die Nachricht konnte nicht weitergeleitet werden. Bitte versuche es später erneut.</p>
+          <small>Technischer Fehler: E-Mail-Service nicht verfügbar</small>
+          <p style="margin-top: 20px;">Diese Seite kann jetzt geschlossen werden.</p>
+        </div>
+      </body>
+      </html>
+    `);
+  }
 });
 
 app.listen(PORT, () => {
-  console.log(`Server running at http://localhost:${PORT}`);
-  console.log(`Admin interface: http://localhost:${PORT}/admin`);
+  console.log(`Server running at ${DOMAIN}`);
+  console.log(`Admin interface: ${DOMAIN}${ADMIN_PATH}`);
 });
