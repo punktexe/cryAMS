@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="de">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -12,16 +13,19 @@
             padding: 20px;
             background: #f8f9fa;
         }
+
         .container {
             background: white;
             padding: 30px;
             border-radius: 10px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
         }
+
         .header {
             text-align: center;
             margin-bottom: 30px;
         }
+
         .btn {
             background-color: #007bff;
             color: white;
@@ -34,32 +38,39 @@
             text-decoration: none;
             display: inline-block;
         }
+
         .btn:hover {
             background-color: #0056b3;
         }
+
         .btn-admin {
             background-color: #28a745;
             margin-top: 20px;
         }
+
         .btn-admin:hover {
             background-color: #218838;
         }
+
         .features {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
             gap: 20px;
             margin-top: 30px;
         }
+
         .feature {
             text-align: center;
             padding: 20px;
             background: #f8f9fa;
             border-radius: 8px;
         }
+
         .feature h3 {
             color: #007bff;
             margin-bottom: 10px;
         }
+
         .welcome {
             background: linear-gradient(135deg, #007bff, #0056b3);
             color: white;
@@ -68,6 +79,7 @@
             text-align: center;
             margin-bottom: 30px;
         }
+
         .form-container {
             background: #e9ecef;
             padding: 30px;
@@ -75,15 +87,18 @@
             border-radius: 8px;
             margin-top: 40px;
         }
+
         .form-group {
             margin-bottom: 15px;
         }
+
         .form-group label {
             display: block;
             font-weight: bold;
             margin-bottom: 5px;
             color: #333;
         }
+
         .form-group input,
         .form-group textarea {
             width: 100%;
@@ -94,17 +109,20 @@
             transition: border-color 0.3s;
             box-sizing: border-box;
         }
+
         .form-group input:focus,
         .form-group textarea:focus {
             outline: none;
             border-color: #007bff;
             box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
         }
+
         .form-submit {
             width: 100%;
             font-size: 16px;
             margin-top: 10px;
         }
+
         .sticker-preview {
             background: white;
             border: 2px dashed #007bff;
@@ -113,6 +131,7 @@
             margin: 30px 0;
             text-align: center;
         }
+
         .sticker-mockup {
             width: 200px;
             height: 320px;
@@ -127,23 +146,27 @@
             flex-direction: column;
             justify-content: space-between;
         }
+
         .sticker-header {
             text-align: center;
             margin-bottom: 15px;
         }
+
         .sticker-title {
             font-size: 18px;
             font-weight: bold;
             color: #ffffff;
             margin: 0;
-            text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
         }
+
         .sticker-subtitle {
             font-size: 14px;
             color: #e0e7ff;
             margin: 2px 0 0 0;
-            text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
         }
+
         .qr-placeholder {
             width: 100px;
             height: 100px;
@@ -156,40 +179,47 @@
             border-radius: 4px;
             padding: 5px;
         }
+
         .qr-demo-image {
             width: 130px;
             height: 130px;
             border-radius: 2px;
         }
+
         .sticker-footer {
             text-align: center;
             margin-top: 15px;
         }
+
         .sticker-text {
             font-size: 14px;
             color: #ffffff;
             margin: 0;
             line-height: 1.3;
-            text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
         }
+
         .sticker-url {
             font-size: 12px;
             color: #e0e7ff;
             margin: 5px 0 0 0;
             font-family: monospace;
-            text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
         }
+
         .dimensions {
             position: absolute;
             font-size: 10px;
             color: #007bff;
             font-weight: bold;
         }
+
         .dim-width {
             bottom: -20px;
             left: 50%;
             transform: translateX(-50%);
         }
+
         .dim-height {
             right: -35px;
             top: 50%;
@@ -197,6 +227,7 @@
         }
     </style>
 </head>
+
 <body>
     <div class="container">
         <div class="welcome">
@@ -235,50 +266,51 @@
         <div class="sticker-preview">
             <h3>🏷️ So könnte dein QR-Code-Aufkleber aussehen</h3>
             <p style="margin-bottom: 20px;">Maße: 5cm x 8cm - perfekt für Notebooks, Türen oder andere Oberflächen</p>
-            
+
             <div class="sticker-mockup">
                 <div class="dimensions dim-width">5cm</div>
                 <div class="dimensions dim-height">8cm</div>
-                
+
                 <div class="sticker-header">
                     <h4 class="sticker-title">🔒 cryAMS</h4>
                     <p class="sticker-subtitle">Anonymous Message</p>
                 </div>
-                
-                                <div class="qr-placeholder">
+
+                <div class="qr-placeholder">
                     <img src="/qr-demo" alt="QR Code für crymg.de" class="qr-demo-image">
                 </div>
-                
+
                 <div class="sticker-footer">
                     <p class="sticker-text">Scanne für anonyme<br>Nachrichten</p>
                     <p class="sticker-url">https://crymg.de</p>
                 </div>
             </div>
-            
+
             <p style="margin-top: 40px; font-size: 12px; color: #666;">
-                <strong>Verwendung:</strong> Auf Laptop, Notebook, Bürotür, Schreibtisch oder überall dort, wo Menschen dir anonym Feedback oder Nachrichten hinterlassen sollen.
+                <strong>Verwendung:</strong> Auf Laptop, Notebook, Bürotür, Schreibtisch oder überall dort, wo Menschen
+                dir anonym Feedback oder Nachrichten hinterlassen sollen.
             </p>
         </div>
 
         <div class="form-container" style="text-align: center;">
             <h3>📝 QR-Code beantragen</h3>
             <p style="margin-bottom: 20px;">Fülle das Formular aus, um deinen persönlichen QR-Code zu beantragen:</p>
-            
+
             <form action="/request-qr" method="post" style="max-width: 400px; margin: 0 auto; text-align: left;">
                 <div class="form-group">
                     <label for="name">Name:</label>
                     <input type="text" id="name" name="name" required>
                 </div>
-                
+
                 <div class="form-group">
                     <label for="email">E-Mail-Adresse:</label>
                     <input type="email" id="email" name="email" required>
                 </div>
-                
+
                 <div class="form-group">
                     <label for="description">Beschreibung (optional):</label>
-                    <textarea id="description" name="description" rows="3" 
-                              placeholder="Z.B. für welchen Zweck soll der QR-Code verwendet werden?"></textarea>
+                    <textarea id="description" name="description" rows="3"
+                        placeholder="Z.B. für welchen Zweck soll der QR-Code verwendet werden?"></textarea>
                 </div>
 
                 <!-- Aufkleber-Bestellung -->
@@ -287,7 +319,8 @@
                         🏷️ Aufkleber-PDF herunterladen (optional)
                     </label>
                     <div style="margin-bottom: 10px;">
-                        <input type="checkbox" id="downloadStickers" name="downloadStickers" onchange="toggleStickerFields()">
+                        <input type="checkbox" id="downloadStickers" name="downloadStickers"
+                            onchange="toggleStickerFields()">
                         <label for="downloadStickers" style="display: inline; margin-left: 8px; font-weight: normal;">
                             Ja, ich möchte eine PDF-Datei mit Aufklebern zum Selbstdrucken
                         </label>
@@ -305,7 +338,8 @@
                         </select>
                     </div>
 
-                    <div style="background: #e3f2fd; padding: 15px; border-radius: 5px; margin: 15px 0; font-size: 14px;">
+                    <div
+                        style="background: #e3f2fd; padding: 15px; border-radius: 5px; margin: 15px 0; font-size: 14px;">
                         <strong>📄 PDF-Download Informationen:</strong><br>
                         • Sofort verfügbar nach QR-Code-Genehmigung<br>
                         • Optimiert für A4-Druck auf Aufkleber-Bögen<br>
@@ -314,7 +348,8 @@
                         • Kostenfrei und umweltfreundlich
                     </div>
 
-                    <div style="background: #f8f9fa; padding: 15px; border-radius: 5px; margin: 15px 0; font-size: 13px;">
+                    <div
+                        style="background: #f8f9fa; padding: 15px; border-radius: 5px; margin: 15px 0; font-size: 13px;">
                         <strong>� Drucktipps:</strong><br>
                         • Verwende wasserfeste Aufkleber-Bögen<br>
                         • Drucke in höchster Qualität (600+ DPI)<br>
@@ -322,14 +357,14 @@
                         • QR-Code-Scanner vor dem Aufkleben testen
                     </div>
                 </div>
-                
+
                 <div style="text-align: center;">
                     <button type="submit" class="btn form-submit">
                         📝 QR-Code beantragen
                     </button>
                 </div>
             </form>
-            
+
             <p style="margin-top: 20px; font-size: 12px; color: #666;">
                 Deine Anfrage wird an einen Administrator weitergeleitet und nach Prüfung freigeschaltet.
             </p>
@@ -341,7 +376,7 @@
             const checkbox = document.getElementById('downloadStickers');
             const fields = document.getElementById('stickerFields');
             const submitBtn = document.querySelector('.form-submit');
-            
+
             if (checkbox.checked) {
                 fields.style.display = 'block';
                 submitBtn.innerHTML = '📝 QR-Code + PDF-Download beantragen';
@@ -352,20 +387,21 @@
         }
 
         // Layout-Update bei Änderung
-        document.getElementById('stickerLayout').addEventListener('change', function() {
+        document.getElementById('stickerLayout').addEventListener('change', function () {
             const submitBtn = document.querySelector('.form-submit');
             const layout = this.value;
-            const layoutNames = { 
-                '4x2': '8 Aufkleber (4x2)', 
-                '3x3': '9 Aufkleber (3x3)', 
-                '4x3': '12 Aufkleber (4x3)', 
-                '5x4': '20 Aufkleber (5x4)' 
+            const layoutNames = {
+                '4x2': '8 Aufkleber (4x2)',
+                '3x3': '9 Aufkleber (3x3)',
+                '4x3': '12 Aufkleber (4x3)',
+                '5x4': '20 Aufkleber (5x4)'
             };
-            
+
             if (document.getElementById('downloadStickers').checked) {
                 submitBtn.innerHTML = `📝 QR-Code + PDF (${layoutNames[layout]}) beantragen`;
             }
         });
     </script>
 </body>
+
 </html>

@@ -1,4 +1,4 @@
-# 🔒 c### Anonymous Message System
+# 🔒 cryAMS Anonymous Message System
 - 👤 Profilerstellung mit UUID-basierten URLs
 - 💬 Anonyme Nachrichtenübermittlung per E-Mail
 - 🔗 Automatische QR-Code-Generierung für Profile

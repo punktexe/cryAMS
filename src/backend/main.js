@@ -105,6 +105,94 @@ async function generateStickerPDF(profile, layout) {
   });
 }
 
+// E-Mail mit PDF-Anhang senden
+async function sendPDFByEmail(profile, pdfBuffer) {
+  try {
+    const filename = `cryAMS-Aufkleber-${profile.name.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`;
+    const layoutInfo = profile.stickerPDF ? ` (${profile.stickerPDF.count} Aufkleber im ${profile.stickerPDF.layout}-Layout)` : '';
+    
+    const mailOptions = {
+      to: profile.email,
+      subject: `🎉 Dein cryAMS QR-Code ist bereit${layoutInfo}`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; border-radius: 10px 10px 0 0;">
+            <h1 style="margin: 0; font-size: 28px;">🔒 cryAMS</h1>
+            <h2 style="margin: 10px 0 0 0; font-size: 18px; opacity: 0.9;">Dein QR-Code ist bereit!</h2>
+          </div>
+          
+          <div style="background: white; padding: 30px; border-radius: 0 0 10px 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+            <p>Hallo <strong>${profile.name}</strong>,</p>
+            
+            <p>dein QR-Code wurde erfolgreich erstellt und genehmigt! 🎉</p>
+            
+            <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0;">
+              <h3 style="color: #007bff; margin-top: 0;">📱 Dein QR-Code Details:</h3>
+              <p><strong>🔗 URL:</strong> <a href="${profile.url}" style="color: #007bff;">${profile.url}</a></p>
+              <p><strong>📝 Beschreibung:</strong> ${profile.description || 'Keine Beschreibung'}</p>
+              <p><strong>📅 Erstellt am:</strong> ${new Date(profile.createdAt).toLocaleDateString('de-DE')}</p>
+            </div>
+            
+            ${profile.stickerPDF ? `
+              <div style="background: #e3f2fd; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #2196f3;">
+                <h3 style="color: #0277bd; margin-top: 0;">📄 PDF-Aufkleber angehängt!</h3>
+                <p><strong>Layout:</strong> ${profile.stickerPDF.count} Aufkleber (${profile.stickerPDF.layout})</p>
+                <p><strong>Datei:</strong> ${filename}</p>
+                <p style="font-size: 14px; color: #666;">
+                  💡 <strong>Drucktipps:</strong><br>
+                  • Drucke in höchster Qualität (600+ DPI)<br>
+                  • Verwende wasserfeste Aufkleber-Bögen<br>
+                  • Teste erst mit normalem Papier<br>
+                  • QR-Code vor dem Aufkleben testen
+                </p>
+              </div>
+            ` : ''}
+            
+            <div style="background: #d4edda; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #28a745;">
+              <h3 style="color: #155724; margin-top: 0;">💬 Wie es funktioniert:</h3>
+              <ol style="color: #155724; padding-left: 20px;">
+                <li>Teile deinen QR-Code mit anderen</li>
+                <li>Personen scannen den Code mit ihrem Smartphone</li>
+                <li>Sie können dir anonyme Nachrichten schreiben</li>
+                <li>Du erhältst die Nachrichten direkt per E-Mail</li>
+              </ol>
+            </div>
+            
+            <div style="text-align: center; margin: 30px 0;">
+              <a href="${profile.url}" style="background: #007bff; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">
+                🔗 QR-Code-Seite besuchen
+              </a>
+            </div>
+            
+            <hr style="border: none; border-top: 1px solid #dee2e6; margin: 30px 0;">
+            
+            <p style="font-size: 14px; color: #666; text-align: center;">
+              <strong>🔒 Datenschutz:</strong> Alle Nachrichten werden anonym versendet und nicht gespeichert.<br>
+              <strong>📧 Support:</strong> Bei Fragen antworte einfach auf diese E-Mail.
+            </p>
+          </div>
+        </div>
+      `,
+      attachments: profile.stickerPDF ? [{
+        filename: filename,
+        content: pdfBuffer,
+        contentType: 'application/pdf'
+      }] : []
+    };
+
+    const result = await EmailService.sendEmail(mailOptions);
+    console.log(`📧 QR-Code E-Mail mit${profile.stickerPDF ? ' PDF-Anhang' : ''} gesendet an: ${profile.email}`);
+    if (result.preview) {
+      console.log(`📧 Preview URL: ${result.preview}`);
+    }
+    return result;
+    
+  } catch (error) {
+    console.error('Fehler beim Senden der PDF-E-Mail:', error);
+    throw error;
+  }
+}
+
 const app = express();
 const adminAuth = new AdminAuth();
 
@@ -741,6 +829,32 @@ app.get(ADMIN_PATH, requireAuth, (req, res) => {
         </div>
       </div>
       
+      <!-- Erfolgs- und Fehlermeldungen -->
+      ${(function() {
+        const urlParams = new URLSearchParams(req.url.split('?')[1] || '');
+        const success = urlParams.get('success');
+        const error = urlParams.get('error');
+        
+        if (success === 'pdf-sent') {
+          return `<div style="background: #d4edda; color: #155724; padding: 15px; margin: 20px 0; border-radius: 5px; border-left: 4px solid #28a745;">
+            📧 <strong>PDF erfolgreich versendet!</strong> Die Aufkleber-PDF wurde per E-Mail zugestellt.
+          </div>`;
+        } else if (error === 'profile-not-found') {
+          return `<div style="background: #f8d7da; color: #721c24; padding: 15px; margin: 20px 0; border-radius: 5px; border-left: 4px solid #dc3545;">
+            ❌ <strong>Fehler:</strong> Profil nicht gefunden.
+          </div>`;
+        } else if (error === 'no-pdf-available') {
+          return `<div style="background: #fff3cd; color: #856404; padding: 15px; margin: 20px 0; border-radius: 5px; border-left: 4px solid #ffc107;">
+            ⚠️ <strong>Hinweis:</strong> Für dieses Profil ist kein PDF-Download verfügbar.
+          </div>`;
+        } else if (error === 'pdf-send-failed') {
+          return `<div style="background: #f8d7da; color: #721c24; padding: 15px; margin: 20px 0; border-radius: 5px; border-left: 4px solid #dc3545;">
+            ❌ <strong>Fehler:</strong> PDF konnte nicht per E-Mail versendet werden.
+          </div>`;
+        }
+        return '';
+      })()}
+      
       <div class="tabs">
         <button class="tab" onclick="showTab('tab-create')">
           ➕ Neues Profil erstellen
@@ -858,8 +972,11 @@ app.get(ADMIN_PATH, requireAuth, (req, res) => {
               <div style="margin-top: 20px; text-align: right;">
                 ${profile.stickerPDF ? `
                   <a href="/pdf/${profile.uuid}" class="btn btn-success" style="margin-right: 10px;" target="_blank">
-                    📄 Aufkleber-PDF herunterladen
+                    📄 PDF herunterladen
                   </a>
+                  <form action="${ADMIN_PATH}/send-pdf/${profile.uuid}" method="post" style="display: inline; margin-right: 10px;">
+                    <button type="submit" class="btn btn-primary">📧 PDF per E-Mail senden</button>
+                  </form>
                 ` : ''}
                 <form action="${ADMIN_PATH}/delete-profile/${profile.uuid}" method="post" style="display: inline;" 
                       onsubmit="return confirm('Profil wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.')">
@@ -1007,7 +1124,7 @@ app.post(`${ADMIN_PATH}/delete-profile/:uuid`, requireAuth, (req, res) => {
 });
 
 // Approve pending request
-app.post(`${ADMIN_PATH}/approve-request/:uuid`, requireAuth, (req, res) => {
+app.post(`${ADMIN_PATH}/approve-request/:uuid`, requireAuth, async (req, res) => {
   const { uuid } = req.params;
   const request = DataStore.getPendingRequest(uuid);
   
@@ -1029,13 +1146,60 @@ app.post(`${ADMIN_PATH}/approve-request/:uuid`, requireAuth, (req, res) => {
     
     if (approved) {
       console.log(`✅ Anfrage ${uuid} genehmigt und Profil erstellt`);
-      if (request.stickerPDF) {
-        console.log(`📄 PDF-Download für ${request.name} verfügbar: /pdf/${uuid}`);
+      
+      // Profil für E-Mail-Versand abrufen
+      const profile = DataStore.getProfile(uuid);
+      if (profile) {
+        profile.url = `${DOMAIN}/${profile.uuid}`;
+        
+        try {
+          // PDF generieren und per E-Mail senden, falls gewünscht
+          if (profile.stickerPDF) {
+            console.log(`📄 Generiere PDF für ${profile.name}...`);
+            const pdfBuffer = await generateStickerPDF(profile, profile.stickerPDF);
+            await sendPDFByEmail(profile, pdfBuffer);
+            console.log(`📧 PDF per E-Mail gesendet an: ${profile.email}`);
+          } else {
+            // Normale Bestätigungs-E-Mail ohne PDF
+            await sendPDFByEmail(profile, null);
+            console.log(`📧 Bestätigungs-E-Mail gesendet an: ${profile.email}`);
+          }
+        } catch (error) {
+          console.error(`❌ Fehler beim E-Mail-Versand für ${profile.email}:`, error);
+        }
       }
     }
   }
   
   res.redirect(ADMIN_PATH);
+});
+
+// Send PDF by email manually
+app.post(`${ADMIN_PATH}/send-pdf/:uuid`, requireAuth, async (req, res) => {
+  const { uuid } = req.params;
+  const profile = DataStore.getProfile(uuid);
+  
+  if (!profile) {
+    return res.redirect(ADMIN_PATH + '?error=profile-not-found');
+  }
+  
+  if (!profile.stickerPDF) {
+    return res.redirect(ADMIN_PATH + '?error=no-pdf-available');
+  }
+  
+  try {
+    profile.url = `${DOMAIN}/${profile.uuid}`;
+    
+    console.log(`📄 Generiere PDF für manuellen Versand an ${profile.name}...`);
+    const pdfBuffer = await generateStickerPDF(profile, profile.stickerPDF);
+    await sendPDFByEmail(profile, pdfBuffer);
+    console.log(`📧 PDF manuell per E-Mail gesendet an: ${profile.email}`);
+    
+    res.redirect(ADMIN_PATH + '?success=pdf-sent');
+  } catch (error) {
+    console.error(`❌ Fehler beim manuellen PDF-Versand für ${profile.email}:`, error);
+    res.redirect(ADMIN_PATH + '?error=pdf-send-failed');
+  }
 });
 
 // Reject pending request
